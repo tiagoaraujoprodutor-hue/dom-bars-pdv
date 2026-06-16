@@ -40,6 +40,11 @@ Toda rota de evento é protegida por `JwtAuthGuard → EventScopeGuard → Roles
 - **Perdas**: `GET/POST /events/:id/losses`.
 - **Cortesias**: `GET/POST /events/:id/courtesies`.
 - **Config do evento**: `GET/PATCH /events/:id/config` (taxa de serviço).
+- **Dashboard/Tempo real**: `GET /events/:id/dashboard`; WebSocket `/events` (`dashboard:update`).
+- **Usuários**: `GET/POST /events/:id/users`. **Wizard**: `GET/POST /events`.
+- **Relatórios PDF**: `GET /events/:id/reports/{general,cash/:registerId,sales-by-operator,
+  sales-by-machine,sales-by-product,payments,courtesies,refunds,cash-movements,losses,stock}`.
+- **Fechamento do evento**: `POST /events/:id/close` (admin + senha admin).
 
 Documentação interativa (Swagger): **`/docs`** (OpenAPI JSON em `/docs-json`).
 

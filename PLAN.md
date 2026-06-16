@@ -133,6 +133,13 @@ Painel Next.js (App Router) em componentes client; tokens JWT no `localStorage` 
 chamadas autenticadas via `fetch`. Simples e suficiente para um painel interno; pode
 evoluir para cookies httpOnly + middleware SSR em hardening.
 
+### ADR-13 — Relatórios PDF com pdfkit (server-side)
+Geração de PDF com **pdfkit** (sem navegador headless): leve, offline, fontes padrão
+embutidas. Um renderizador genérico (`renderPdf(spec)`) recebe título + seções (tabelas)
+e devolve um `Buffer`, servido como `application/pdf` via `StreamableFile`. Evita o peso
+operacional do puppeteer. Fechamento de evento consolida e marca `ENCERRADO`; o relatório
+geral fica em `GET /events/:id/reports/general`.
+
 ---
 
 ## 5. Engine de offline/sync — DECIDIDO: PowerSync ✅
@@ -207,8 +214,8 @@ e alterações críticas. Toda ação → auditoria.
       de criação de evento, dashboard WebSocket com faturamento bruto em destaque.
       **DoD:** dashboard reflete vendas em tempo real. ✅ Gateway WS + dashboard agregado +
       app Next.js; teste e2e prova `dashboard:update` ao registrar venda (30 testes verdes).
-- [ ] **Fase 4 — Relatórios & fechamento:** PDFs e fechamento automático do evento.
-      **DoD:** todos os relatórios saem em PDF.
+- [x] **Fase 4 — Relatórios & fechamento:** PDFs e fechamento automático do evento.
+      **DoD:** todos os relatórios saem em PDF. ✅ 11 relatórios PDF + fechamento de evento; 44 testes.
 - [ ] **Fase 5 — App POS (online):** RN dev client, venda em 2–3 toques, comandas/QR,
       impressão via SDK nativo do Smart 2. **DoD:** vender e imprimir de um Smart 2.
 - [ ] **Fase 6 — Offline & sync:** SQLite local, operação offline total, sync automático,

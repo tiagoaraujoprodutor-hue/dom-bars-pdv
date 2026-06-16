@@ -34,3 +34,16 @@ export async function api<T = unknown>(path: string, options: ApiOptions = {}): 
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+/** Baixa um PDF autenticado e abre em nova aba. */
+export async function openPdf(path: string): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`Erro ${res.status} ao gerar relatório`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

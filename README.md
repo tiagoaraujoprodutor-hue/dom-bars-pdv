@@ -57,6 +57,9 @@ pnpm format              # prettier --write
   **Swagger em `/docs`**.
 - **Fase 3 — Painel web tempo real** ✅ Next.js (App Router): login, lista de eventos,
   **wizard de criação de evento**, gestão de produtos/usuários e **dashboard WebSocket**
-  com FATURAMENTO BRUTO em destaque + indicador online/offline. 30 testes verdes.
+  com FATURAMENTO BRUTO em destaque + indicador online/offline.
+- **Fase 4 — Relatórios & fechamento** ✅ 11 relatórios em **PDF** (caixa, vendas por
+  operador/máquina/produto, pagamentos, cortesias, reembolsos, sangrias, perdas, estoque,
+  geral) e **fechamento automático do evento** (consolida + audita). 44 testes verdes.
 
-Próxima: **Fase 4** (relatórios PDF & fechamento de evento). Ver [`PLAN.md`](./PLAN.md).
+Próxima: **Fase 5** (app POS Android — React Native). Ver [`PLAN.md`](./PLAN.md).
