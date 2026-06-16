@@ -45,19 +45,21 @@ internamente). Perfis em `eas.json`: `preview`/`development` = APK, `production`
 > Ajuste `EXPO_PUBLIC_API_URL` (em `.env` ou nas env vars do build EAS) para a URL pública
 > da API antes de gerar o APK que vai para os terminais.
 
-## Habilitar a impressora do Smart 2 (módulo nativo)
+## Habilitar a impressora do Smart 2 (módulo nativo já scaffoldado)
 
-O bridge JS já está pronto (`src/lib/printer.ts`): ele usa `NativeModules.Smart2Printer`
-e cai no MockPrinter se o módulo não existir. Para imprimir de verdade:
+O módulo nativo **já existe** em `modules/smart2-printer/` (Expo Module local, auto-linkado)
+e o bridge JS (`src/lib/printer.ts`) já o consome com fallback automático para o MockPrinter.
+Para imprimir de verdade, só falta plugar o SDK do fabricante:
 
-1. Crie um módulo nativo Android (Kotlin) chamado `Smart2Printer` com o método
-   `printLines(lines: ReadableArray)` que chama o **SDK da impressora do fabricante**
-   (geralmente um `.aar`/`.jar` que acompanha o Smart 2).
-2. Adicione o SDK em `android/app/libs/` e registre o package no `MainApplication`.
-   Em projeto Expo, faça isso via `expo prebuild` + um **config plugin** ou um
-   **Expo Module local** (`npx create-expo-module --local`).
-3. Reconstrua com `eas build` (ou `expo run:android`). Nenhuma mudança no resto do app:
-   o `printer.print(job)` passa a sair na térmica automaticamente.
+1. Copie o SDK da impressora (`.aar`/`.jar` do Smart 2) para
+   `modules/smart2-printer/android/libs/` e descomente a linha `implementation files(...)`
+   em `modules/smart2-printer/android/build.gradle`.
+2. Em `modules/smart2-printer/android/.../Smart2PrinterModule.kt`, troque o corpo de
+   `printLines` pela chamada real do SDK (há exemplos Sunmi/ESC-POS comentados no arquivo).
+3. Rebuild: `eas build -p android --profile preview` (ou `expo run:android`). Nada mais muda —
+   `printer.print(job)` passa a sair na térmica.
+
+> Sem o SDK, o app roda normalmente e a impressão vira no-op/log (não quebra a venda).
 
 ## Fluxo de venda (2–3 toques)
 

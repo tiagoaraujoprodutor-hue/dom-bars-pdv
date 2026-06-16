@@ -1,0 +1,26 @@
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+group = 'com.dombars.smart2printer'
+version = '0.1.0'
+
+def expoModulesCorePlugin = new File(
+  project(":expo-modules-core").projectDir.absolutePath,
+  "ExpoModulesCorePlugin.gradle"
+)
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+
+android {
+  namespace "com.dombars.smart2printer"
+  compileSdkVersion rootProject.ext.compileSdkVersion ?: 35
+  defaultConfig {
+    minSdkVersion rootProject.ext.minSdkVersion ?: 24
+  }
+}
+
+dependencies {
+  // 1) Coloque o SDK da impressora do Smart 2 em libs/ e descomente:
+  // implementation files('libs/printer-sdk.aar')
+  // (ou a dependência maven do fabricante, ex.: Sunmi)
+}

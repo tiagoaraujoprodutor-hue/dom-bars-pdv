@@ -1,0 +1,14 @@
+# Deploy do painel web (Next.js) no Netlify, a partir do monorepo pnpm.
+# A API (NestJS) NÃO vai no Netlify — ela roda no Coolify/VPS.
+
+[build]
+  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @dom-bars/web build"
+  publish = "apps/web/.next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # NEXT_PUBLIC_API_URL é definido nas variáveis do site no painel do Netlify
+  # (ex.: https://api.seudominio.com.br). Como é NEXT_PUBLIC_*, entra no build.
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

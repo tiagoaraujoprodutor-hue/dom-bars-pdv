@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["com.dombars.smart2printer.Smart2PrinterModule"]
+  }
+}
