@@ -91,9 +91,9 @@ regra de ouro do offline.
 
 ---
 
-## 5. Decisão pendente de confirmação — Engine de offline/sync
+## 5. Engine de offline/sync — DECIDIDO: PowerSync ✅
 
-**Recomendação: PowerSync** (primário), conforme o briefing sugere.
+**Decisão confirmada (2026-06-16): PowerSync** (primário), conforme o briefing sugere.
 
 | Critério | PowerSync | WatermelonDB |
 |---|---|---|
@@ -108,13 +108,13 @@ replicação lógica no Postgres). Em troca, elimina a parte mais arriscada do p
 (sync manual com conflitos). Para 15 terminais e a regra de ouro de "zero perda/zero
 duplicidade", o risco de um sync caseiro não compensa.
 
-→ **Preciso da sua confirmação** antes da Fase 6 (não bloqueia Fases 1–5).
+Detalhes de implementação serão definidos na Fase 6.
 
 ---
 
-## 6. Decisão pendente de confirmação — Hospedagem
+## 6. Hospedagem — DECIDIDO: Coolify em 1 VPS ✅
 
-**Recomendação: Coolify em 1 VPS** (Hetzner ou DigitalOcean).
+**Decisão confirmada (2026-06-16): Coolify em 1 VPS** (Hetzner ou DigitalOcean).
 
 - PaaS self-hosted: deploys, SSL automático, Postgres/Redis gerenciados, baixo custo.
 - Eventos são intermitentes → custo previsível e baixo importa.
@@ -125,7 +125,7 @@ Entregáveis de deploy: `.env.example` versionado, secrets fora do git, migratio
 automáticas no deploy, **backup diário do Postgres** com restore testado, healthchecks,
 logs centralizados e `CHECKLIST_DIA_DE_EVENTO.md`.
 
-→ **Preciso da sua confirmação** antes da Fase 7 (não bloqueia Fases 1–6).
+Detalhes de deploy serão definidos na Fase 7.
 
 ---
 
@@ -148,7 +148,7 @@ e alterações críticas. Toda ação → auditoria.
 
 ## 8. Roadmap por fases (checkpoint de aprovação ao fim de cada uma)
 
-- [ ] **Fase 0 — Fundação:** monorepo, Docker Compose, CI, lint/format, `CLAUDE.md`, `PLAN.md`, healthcheck.
+- [x] **Fase 0 — Fundação:** monorepo, Docker Compose, CI, lint/format, `CLAUDE.md`, `PLAN.md`, healthcheck.
       **DoD:** `docker compose up` sobe banco/redis/api e responde `/health`.
 - [ ] **Fase 1 — Modelagem + Auth + Multi-tenant + Auditoria:** schema Prisma completo,
       migrations, RBAC, JWT+refresh, senha admin por evento, auditoria append-only, seed.
