@@ -8,6 +8,27 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pdv
+          POSTGRES_PASSWORD: pdv
+          POSTGRES_DB: pdv_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pdv"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://pdv:pdv@localhost:5432/pdv_test?schema=public
+      JWT_SECRET: ci-secret-key-change-me
+      JWT_REFRESH_SECRET: ci-refresh-secret-change-me
+
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +43,9 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        run: pnpm --filter @dom-bars/api prisma:generate
 
       - name: Lint
         run: pnpm lint

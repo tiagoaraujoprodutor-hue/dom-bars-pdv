@@ -53,7 +53,7 @@ cruza eventos sem permissão explícita.
 |---|---|---|
 | Monorepo | Turborepo + pnpm | turbo `2.9.x`, pnpm `9.x` |
 | Backend | NestJS | `11.x` |
-| ORM | Prisma | `7.x` |
+| ORM | Prisma | `6.x` (ver ADR-05) |
 | Banco | PostgreSQL | `16` |
 | Cache/Filas | Redis + BullMQ | redis `7`, bullmq `5.x` |
 | Tempo real | WebSocket (NestJS Gateway / socket.io) | namespaces por evento |
@@ -87,7 +87,22 @@ manuais hoje; PagBank/PlugPag no futuro). Regra de negócio nunca acoplada a pro
 ### ADR-04 — Idempotência de vendas
 Toda venda carrega um `clientId` (UUID gerado no terminal). O backend faz upsert
 idempotente por `clientId`, garantindo zero duplicidade na sincronização. Base da
-regra de ouro do offline.
+regra de ouro do offline. No schema: `Sale @@unique([eventId, clientId])`.
+
+### ADR-05 — Prisma 6.x (em vez de 7.x)
+O briefing/PLAN inicial mirava Prisma 7. Adotado **Prisma 6.19.x** por compatibilidade
+sólida com o NestJS em CommonJS (o client `prisma-client-js`); o Prisma 7 é ESM-first
+e adicionaria atrito de bundling sem ganho funcional nesta fase. Reavaliar em fase de
+hardening. **Auditoria append-only** reforçada por trigger no banco
+(`migration audit_append_only`), que bloqueia UPDATE/DELETE inclusive para o owner.
+
+### ADR-06 — Validação com Zod (sem class-validator)
+Validação de entrada via `ZodValidationPipe` por rota, reutilizando schemas. Evita a
+dupla fonte de verdade de DTOs com decorators e alinha com `packages/shared`.
+
+### ADR-07 — Refresh token rotativo
+Refresh token é JWT (secret próprio) com `jti` único; persistido como `sha256` em
+`RefreshToken`. No refresh há **rotação** (revoga o usado, emite novo par). Logout revoga.
 
 ---
 
@@ -150,9 +165,11 @@ e alterações críticas. Toda ação → auditoria.
 
 - [x] **Fase 0 — Fundação:** monorepo, Docker Compose, CI, lint/format, `CLAUDE.md`, `PLAN.md`, healthcheck.
       **DoD:** `docker compose up` sobe banco/redis/api e responde `/health`.
-- [ ] **Fase 1 — Modelagem + Auth + Multi-tenant + Auditoria:** schema Prisma completo,
+- [x] **Fase 1 — Modelagem + Auth + Multi-tenant + Auditoria:** schema Prisma completo,
       migrations, RBAC, JWT+refresh, senha admin por evento, auditoria append-only, seed.
       **DoD:** login dos 3 perfis, escopo por evento garantido por teste, auditoria gravando.
+      ✅ 14 testes e2e/unit verdes (login 3 perfis, isolamento A↔B, RBAC, senha admin,
+      auditoria gravando, append-only no banco, rotação de refresh).
 - [ ] **Fase 2 — Núcleo operacional (API):** caixa, produtos, estoque, ficha técnica +
       baixa de insumos, perdas, comandas (QR), vendas, abstração de pagamentos, taxa de
       serviço, cortesia/reembolso. Swagger. **DoD:** ciclo completo de venda via API com testes.

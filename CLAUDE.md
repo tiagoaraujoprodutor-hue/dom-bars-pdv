@@ -22,15 +22,38 @@ Detalhes de arquitetura, decisões e roadmap em **`PLAN.md`**.
 
 ## Como rodar (dev)
 
-> Será preenchido na Fase 0/1 conforme os apps forem criados.
-
 ```bash
-docker compose up      # sobe postgres + redis + api
+docker compose up      # sobe postgres + redis + api (api aplica migrations no start)
 pnpm install           # instala dependências do monorepo
 pnpm dev               # sobe todos os apps em modo dev
 ```
 
 Healthcheck da API: `GET /health`.
+
+### Banco (Prisma) — em `apps/api`
+
+```bash
+# DATABASE_URL aponta para o Postgres (ver .env.example)
+pnpm --filter @dom-bars/api prisma:generate   # gera o client
+pnpm --filter @dom-bars/api prisma:migrate    # cria/aplica migrations (dev)
+pnpm --filter @dom-bars/api prisma:deploy      # aplica migrations (prod/CI)
+pnpm --filter @dom-bars/api prisma:seed        # popula empresa/evento/usuários demo
+```
+
+Credenciais demo (seed): usuários `operador@demo.com`, `supervisor@demo.com`,
+`admin@demo.com` (senha `senha123`); senha admin do evento: `admin123`.
+
+> Migrations especiais escritas em SQL puro (ex.: trigger append-only de auditoria)
+> ficam em `apps/api/prisma/migrations/*` com timestamp posterior ao `init`.
+
+### Testes (integração com banco)
+
+Os testes e2e usam um Postgres real (banco `pdv_test`). Configure `DATABASE_URL`
+para o banco de teste; o `globalSetup` do Jest roda `prisma migrate deploy` antes da suíte.
+
+```bash
+DATABASE_URL=postgresql://pdv:pdv@127.0.0.1:5432/pdv_test pnpm --filter @dom-bars/api test
+```
 
 ## Como testar
 

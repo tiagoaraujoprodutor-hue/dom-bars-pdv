@@ -47,5 +47,10 @@ pnpm format              # prettier --write
 
 ## Status
 
-**Fase 0 — Fundação** concluída: monorepo, Docker Compose, CI, lint/format e
-healthcheck. Próxima: Fase 1 (modelagem Prisma, auth, multi-tenant, auditoria).
+- **Fase 0 — Fundação** ✅ monorepo, Docker Compose, CI, lint/format, healthcheck.
+- **Fase 1 — Modelagem + Auth + Multi-tenant + Auditoria** ✅ schema Prisma completo,
+  migrations, RBAC, JWT+refresh com rotação, senha admin por evento, auditoria
+  append-only (trigger no banco) e seed. 14 testes verdes.
+
+Próxima: **Fase 2** (núcleo operacional — caixa, produtos, estoque, ficha técnica,
+comandas, vendas, pagamentos). Ver [`PLAN.md`](./PLAN.md).

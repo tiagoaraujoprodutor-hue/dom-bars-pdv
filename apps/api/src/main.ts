@@ -5,6 +5,8 @@ import { AppModule } from './app.module';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+  app.enableCors();
+  // Validação de entrada é feita por ZodValidationPipe em cada rota (ver PLAN §5 / CLAUDE.md).
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port, '0.0.0.0');
