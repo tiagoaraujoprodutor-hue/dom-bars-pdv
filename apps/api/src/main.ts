@@ -1,12 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+  app.use(helmet());
   app.enableCors();
+  app.useGlobalFilters(new AllExceptionsFilter());
   // Validação de entrada é feita por ZodValidationPipe em cada rota (ver PLAN §5 / CLAUDE.md).
 
   const swaggerConfig = new DocumentBuilder()

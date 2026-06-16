@@ -63,6 +63,10 @@ pnpm format              # prettier --write
 - **Fases 5 e 6 — App POS + Offline** ✅ app Expo (Smart 2): login, seleção de evento,
   **venda em 2–3 toques**, comandas e bridge de impressão; **offline-first** com outbox
   durável (SQLite) + `SyncEngine` idempotente — **zero perda / zero duplicação provados
-  por teste** em `packages/shared`. 51 testes verdes no total.
+  por teste** em `packages/shared`.
+- **Fase 7 — Hardening & Deploy** ✅ teste de carga (15 terminais: 300 vendas, 0 duplicatas,
+  ~77 v/s), `helmet` + filtro global + rate limit por env, `docker-compose.prod.yml` +
+  Dockerfile web, backup/restore, `CHECKLIST_DIA_DE_EVENTO.md`, `SECURITY.md` e manuais.
 
-Próxima: **Fase 7** (hardening, backups, observabilidade e deploy). Ver [`PLAN.md`](./PLAN.md).
+**51 testes verdes** no total. Deploy de produção (Coolify) documentado em
+[`docs/MANUAL_INSTALACAO.md`](./docs/MANUAL_INSTALACAO.md).

@@ -1,0 +1,55 @@
+# Manual Operacional
+
+Para quem **opera o evento** — linguagem do dia a dia, sem termos técnicos.
+
+## Quem faz o quê (perfis)
+- **Operador**: abre comanda, lança produtos, recebe pagamento.
+- **Supervisor**: tudo do operador + acompanha a operação e relatórios.
+- **Administrador**: tudo + cancelar/estornar, cortesia, sangria/suprimento, mexer no
+  estoque, cadastrar usuários e **encerrar o evento**. Ações críticas pedem a
+  **senha administrativa do evento**.
+
+## Antes de vender
+1. Faça **login** no terminal e **escolha o evento**.
+2. **Abra o caixa** informando o valor inicial. *Sem caixa aberto, não vende.*
+
+## Vender (rápido, 2–3 toques)
+1. Toque nos **produtos** para montar o pedido (cada toque soma 1).
+2. Toque em **Cobrar**.
+3. Escolha a **forma de pagamento**. Pronto — comprovante impresso.
+
+> O canto da tela mostra **Online/Offline** e a **fila** de vendas a sincronizar.
+> Mesmo **sem internet** você continua vendendo: tudo é salvo e sincroniza sozinho
+> quando a conexão volta. Nenhuma venda se perde nem duplica.
+
+## Comandas (QR)
+- **Nova comanda** gera um código. Lance itens na comanda ao longo da noite.
+- No fim, **feche a comanda** e receba (a taxa de serviço, se ativa, entra aqui).
+- A comanda pode ser **fechada em qualquer terminal**.
+
+## Caixa
+- **Sangria**: retirar dinheiro do caixa (precisa senha admin + motivo).
+- **Suprimento**: colocar dinheiro/troco (senha admin + motivo).
+- **Fechar caixa**: informe o valor contado; o sistema mostra o esperado.
+
+## Situações especiais (Administrador)
+- **Cortesia**: brinde registrado (beneficiário + motivo + senha admin).
+- **Estorno/Reembolso**: desfaz uma venda e devolve ao estoque (motivo + senha admin).
+- **Perdas**: quebra/vazamento/vencido (motivo obrigatório).
+
+## Acompanhar (painel web)
+- **FATURAMENTO BRUTO** em destaque, ao vivo.
+- Vendas por operador/máquina, produtos mais vendidos, formas de pagamento,
+  comandas abertas/fechadas, sangrias, cortesias, estoque.
+
+## Encerrar o evento
+1. Garanta que os terminais estão **online** e com **fila zerada**.
+2. **Feche os caixas**.
+3. **Encerre o evento** → o sistema consolida tudo e gera o **relatório geral em PDF**.
+4. Baixe os relatórios necessários (vendas, pagamentos, perdas, cortesias, etc.).
+
+## Dúvidas comuns
+- *"Travou a internet"* → continue vendendo; sincroniza depois.
+- *"Errei uma venda"* → peça ao administrador para **estornar** (fica registrado).
+- *"Quanto vendi?"* → veja no painel ou no relatório por operador.
+- Todo movimento fica na **auditoria** e não pode ser apagado.

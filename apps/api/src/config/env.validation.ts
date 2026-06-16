@@ -8,6 +8,8 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(8, 'JWT_REFRESH_SECRET deve ter ao menos 8 caracteres'),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('7d'),
+  THROTTLE_TTL: z.coerce.number().int().positive().default(60_000),
+  THROTTLE_LIMIT: z.coerce.number().int().positive().default(2_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

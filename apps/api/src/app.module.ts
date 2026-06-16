@@ -23,7 +23,14 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    // Rate limit dimensionado para evento (15 terminais sob mesmo NAT compartilham IP):
+    // protege contra abuso sem barrar o pico de vendas. Ajustável por env.
+    ThrottlerModule.forRoot([
+      {
+        ttl: Number(process.env.THROTTLE_TTL ?? 60_000),
+        limit: Number(process.env.THROTTLE_LIMIT ?? 2_000),
+      },
+    ]),
     PrismaModule,
     AuditModule,
     InventoryModule,

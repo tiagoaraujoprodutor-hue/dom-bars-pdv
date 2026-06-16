@@ -144,6 +144,12 @@ comanda em tempo real entre 15 terminais) e pode ser adicionado para o read-side
 **write-path de vendas** (o ponto crítico), o outbox + idempotência já garante o requisito
 com menos peso operacional e é o que está implementado.
 
+### ADR-16 — Rate limit dimensionado por evento (achado do teste de carga)
+O teste de carga (15 terminais) revelou que o limite default (100 req/min) barrava o pico
+de vendas com 429. Ajustado para **2000 req/min** (configurável por `THROTTLE_LIMIT`), pois
+15 terminais sob o mesmo NAT compartilham o IP. Após o ajuste: 300 vendas criadas, 0
+duplicatas (60 reenvios idempotentes), ~77 vendas/s, 0 falhas.
+
 ### ADR-15 — Impressão desacoplada do SDK
 `Printer` (interface em `shared`) com `MockPrinter` (dev) e `NativePrinter` (bridge para
 o módulo nativo `Smart2Printer` do terminal). A regra de venda chama `printer.print(job)`
@@ -240,8 +246,12 @@ e alterações críticas. Toda ação → auditoria.
       resolução de conflitos, fila. **DoD:** vender offline em 2 terminais, reconectar, zero perda/zero duplicidade.
       ✅ Outbox SQLite + `SyncEngine` idempotente; garantia provada por testes em `shared`
       (51 testes no total). Validação em 2 terminais físicos fica para o PDV real.
-- [ ] **Fase 7 — Hardening & Deploy:** teste de carga (15 terminais), revisão de segurança,
+- [x] **Fase 7 — Hardening & Deploy:** teste de carga (15 terminais), revisão de segurança,
       backups, observabilidade, produção + checklist de dia de evento. **DoD:** sistema no ar, deploy reproduzível.
+      ✅ Teste de carga executado (300 vendas/15 terminais, 0 duplicatas, ~77 v/s); helmet +
+      filtro global + rate limit por env; `docker-compose.prod.yml` + Dockerfile web (standalone);
+      scripts de backup/restore; `CHECKLIST_DIA_DE_EVENTO.md`, `SECURITY.md`, manuais de
+      instalação e operacional. Deploy em produção (Coolify) documentado — a aplicar no VPS.
 
 ---
 
