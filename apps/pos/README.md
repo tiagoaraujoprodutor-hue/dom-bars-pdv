@@ -27,11 +27,37 @@ Login demo: `operador@demo.com` / `senha123`.
 - O **motor de sync** (`@dom-bars/shared` → `SyncEngine`) drena a fila quando há rede.
   Sua lógica é coberta por testes em `packages/shared` (zero perda / zero duplicação).
 
-## Impressão
+## Build do APK na nuvem (sem Android SDK local) — EAS
 
-`src/lib/printer.ts` faz o binding com o módulo nativo `Smart2Printer` (SDK da
-impressora). Sem o módulo (dev), cai no `MockPrinter` de `@dom-bars/shared`. A
-regra de negócio nunca acopla ao SDK.
+Se você não tem Android Studio/SDK na máquina, gere o APK pela nuvem do Expo:
+
+```bash
+npm i -g eas-cli
+cd apps/pos
+eas login                 # sua conta Expo (grátis)
+eas init                  # cria o projeto EAS e grava o projectId no app.json
+eas build -p android --profile preview   # gera um APK instalável
+```
+
+Ao terminar, o EAS dá um link para baixar o **APK**; instale nos Smart 2 (ou distribua
+internamente). Perfis em `eas.json`: `preview`/`development` = APK, `production` = AAB.
+
+> Ajuste `EXPO_PUBLIC_API_URL` (em `.env` ou nas env vars do build EAS) para a URL pública
+> da API antes de gerar o APK que vai para os terminais.
+
+## Habilitar a impressora do Smart 2 (módulo nativo)
+
+O bridge JS já está pronto (`src/lib/printer.ts`): ele usa `NativeModules.Smart2Printer`
+e cai no MockPrinter se o módulo não existir. Para imprimir de verdade:
+
+1. Crie um módulo nativo Android (Kotlin) chamado `Smart2Printer` com o método
+   `printLines(lines: ReadableArray)` que chama o **SDK da impressora do fabricante**
+   (geralmente um `.aar`/`.jar` que acompanha o Smart 2).
+2. Adicione o SDK em `android/app/libs/` e registre o package no `MainApplication`.
+   Em projeto Expo, faça isso via `expo prebuild` + um **config plugin** ou um
+   **Expo Module local** (`npx create-expo-module --local`).
+3. Reconstrua com `eas build` (ou `expo run:android`). Nenhuma mudança no resto do app:
+   o `printer.print(job)` passa a sair na térmica automaticamente.
 
 ## Fluxo de venda (2–3 toques)
 
