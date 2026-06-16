@@ -104,6 +104,24 @@ dupla fonte de verdade de DTOs com decorators e alinha com `packages/shared`.
 Refresh token é JWT (secret próprio) com `jti` único; persistido como `sha256` em
 `RefreshToken`. No refresh há **rotação** (revoga o usado, emite novo par). Logout revoga.
 
+### ADR-08 — Baixa de estoque em ponto único (finalização da venda)
+A baixa de estoque/insumos acontece **só na finalização da venda** (`SalesService.finalize`),
+reusada por venda avulsa e por fechamento de comanda. Itens adicionados à comanda **não
+reservam** estoque; a baixa ocorre no fechamento. Trade-off: simplicidade e uma única
+fonte de verdade (sem dupla contagem) em troca de não reservar durante a comanda aberta —
+aceitável para o cenário de bar. Produto **com** ficha técnica baixa insumos; **sem** ficha
+baixa o próprio estoque. Cancelamento/reembolso estorna pelo mesmo caminho.
+
+### ADR-09 — Idempotência e taxa de serviço
+Venda é idempotente por `@@unique([eventId, clientId])`: re-POST com mesmo `clientId`
+retorna a venda existente (e trata corrida via P2002). Taxa de serviço é aplicada no
+**fechamento da comanda** (e opcionalmente em venda avulsa via flag), conforme o evento.
+
+### ADR-10 — Pagamentos via Strategy
+`PaymentProvider` (interface) + `PaymentsService` (registro método→provider).
+`ManualPaymentProvider` cobre PIX/crédito/débito/dinheiro/cortesia hoje; PagBank/PlugPag
+entram registrando um provider, sem tocar na regra de venda.
+
 ---
 
 ## 5. Engine de offline/sync — DECIDIDO: PowerSync ✅
@@ -170,9 +188,10 @@ e alterações críticas. Toda ação → auditoria.
       **DoD:** login dos 3 perfis, escopo por evento garantido por teste, auditoria gravando.
       ✅ 14 testes e2e/unit verdes (login 3 perfis, isolamento A↔B, RBAC, senha admin,
       auditoria gravando, append-only no banco, rotação de refresh).
-- [ ] **Fase 2 — Núcleo operacional (API):** caixa, produtos, estoque, ficha técnica +
+- [x] **Fase 2 — Núcleo operacional (API):** caixa, produtos, estoque, ficha técnica +
       baixa de insumos, perdas, comandas (QR), vendas, abstração de pagamentos, taxa de
       serviço, cortesia/reembolso. Swagger. **DoD:** ciclo completo de venda via API com testes.
+      ✅ 26 testes verdes; Swagger em `/docs`.
 - [ ] **Fase 3 — Painel web tempo real:** auth, gestão de evento/produtos/usuários, wizard
       de criação de evento, dashboard WebSocket com faturamento bruto em destaque.
       **DoD:** dashboard reflete vendas em tempo real.

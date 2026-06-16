@@ -27,6 +27,26 @@ pnpm --filter @dom-bars/api dev
 Toda rota de evento é protegida por `JwtAuthGuard → EventScopeGuard → RolesGuard`
 (isolamento multi-tenant + RBAC). Ações críticas exigem senha admin do evento.
 
+### Núcleo operacional (Fase 2)
+
+- **Produtos/estoque**: `GET/POST /events/:id/products`, `PATCH /products/:id`,
+  `categories`, `ingredients`, `PUT /products/:id/recipe` (ficha técnica),
+  `POST /inventory/adjust`, `GET /inventory/low-stock`.
+- **Caixa**: `POST /cash-registers/open`, `:id/close`, `:id/sangria`, `:id/suprimento`,
+  `GET current`, `:id/summary`.
+- **Comandas**: `POST /tabs`, `GET /tabs/:code`, `POST /tabs/:id/items`, `:id/close`.
+- **Vendas**: `POST /sales` (idempotente por `clientId`), `GET /sales`, `:id`,
+  `POST /sales/:id/cancel` (estorno).
+- **Perdas**: `GET/POST /events/:id/losses`.
+- **Cortesias**: `GET/POST /events/:id/courtesies`.
+- **Config do evento**: `GET/PATCH /events/:id/config` (taxa de serviço).
+
+Documentação interativa (Swagger): **`/docs`** (OpenAPI JSON em `/docs-json`).
+
+**Regras críticas garantidas:** sem caixa aberto não há venda; baixa de estoque/insumos
+na venda; idempotência de venda offline; taxa de serviço no fechamento da comanda;
+sangria/suprimento/cortesia/estorno exigem perfil Administrador + senha admin.
+
 ## Banco e testes
 
 Ver instruções de Prisma (migrate/seed) e dos testes de integração em `CLAUDE.md`.
@@ -35,5 +55,4 @@ Ver instruções de Prisma (migrate/seed) e dos testes de integração em `CLAUD
 pnpm --filter @dom-bars/api test   # requer Postgres (banco pdv_test) — ver CLAUDE.md
 ```
 
-> Módulos de domínio operacional (caixa, produtos, comandas, vendas, pagamentos)
-> chegam na Fase 2. Ver roadmap em `PLAN.md`.
+> Próxima fase: painel web em tempo real (WebSocket) e dashboard. Ver `PLAN.md`.

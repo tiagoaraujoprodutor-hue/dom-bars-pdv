@@ -50,7 +50,10 @@ pnpm format              # prettier --write
 - **Fase 0 — Fundação** ✅ monorepo, Docker Compose, CI, lint/format, healthcheck.
 - **Fase 1 — Modelagem + Auth + Multi-tenant + Auditoria** ✅ schema Prisma completo,
   migrations, RBAC, JWT+refresh com rotação, senha admin por evento, auditoria
-  append-only (trigger no banco) e seed. 14 testes verdes.
+  append-only (trigger no banco) e seed.
+- **Fase 2 — Núcleo operacional (API)** ✅ caixa (abertura/fechamento/sangria/suprimento),
+  produtos/estoque, ficha técnica + baixa de insumos, perdas, comandas (QR), vendas
+  (idempotentes), abstração de pagamentos (Strategy), taxa de serviço, cortesia/reembolso.
+  **Swagger em `/docs`**. 26 testes verdes.
 
-Próxima: **Fase 2** (núcleo operacional — caixa, produtos, estoque, ficha técnica,
-comandas, vendas, pagamentos). Ver [`PLAN.md`](./PLAN.md).
+Próxima: **Fase 3** (painel web tempo real). Ver [`PLAN.md`](./PLAN.md).

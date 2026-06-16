@@ -1,0 +1,146 @@
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { CashMovementType, CashRegisterStatus } from '@prisma/client';
+import { AdminPasswordService } from '../auth/admin-password.service';
+import { AuditService } from '../audit/audit.service';
+import { dec, sum } from '../common/money';
+import { PrismaService } from '../prisma/prisma.service';
+import { CashMovementDto, CloseCashDto, OpenCashDto } from './dto/cash.dto';
+
+@Injectable()
+export class CashService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+    private readonly adminPassword: AdminPasswordService,
+  ) {}
+
+  /** Caixa aberto do evento (regra: um caixa aberto por evento por vez). */
+  findOpen(eventId: string) {
+    return this.prisma.cashRegister.findFirst({
+      where: { eventId, status: CashRegisterStatus.ABERTO },
+    });
+  }
+
+  async open(eventId: string, userId: string, companyId: string, dto: OpenCashDto) {
+    const existing = await this.findOpen(eventId);
+    if (existing) {
+      throw new ConflictException('Já existe um caixa aberto para este evento');
+    }
+    const register = await this.prisma.cashRegister.create({
+      data: { eventId, openedById: userId, openingAmount: dec(dto.openingAmount) },
+    });
+    await this.audit.record({
+      action: 'CASH_OPEN',
+      userId,
+      companyId,
+      eventId,
+      entity: 'CashRegister',
+      entityId: register.id,
+      amount: register.openingAmount.toNumber(),
+    });
+    return register;
+  }
+
+  async close(eventId: string, registerId: string, userId: string, companyId: string, dto: CloseCashDto) {
+    const register = await this.requireRegister(eventId, registerId);
+    if (register.status === CashRegisterStatus.FECHADO) {
+      throw new ConflictException('Caixa já está fechado');
+    }
+    const closed = await this.prisma.cashRegister.update({
+      where: { id: register.id },
+      data: {
+        status: CashRegisterStatus.FECHADO,
+        closingAmount: dec(dto.closingAmount),
+        closedAt: new Date(),
+      },
+    });
+    await this.audit.record({
+      action: 'CASH_CLOSE',
+      userId,
+      companyId,
+      eventId,
+      entity: 'CashRegister',
+      entityId: register.id,
+      amount: closed.closingAmount?.toNumber() ?? null,
+    });
+    return this.summary(eventId, register.id);
+  }
+
+  async movement(
+    eventId: string,
+    registerId: string,
+    type: CashMovementType,
+    userId: string,
+    companyId: string,
+    dto: CashMovementDto,
+  ) {
+    await this.adminPassword.assertValid(eventId, dto.adminPassword);
+    const register = await this.requireRegister(eventId, registerId);
+    if (register.status !== CashRegisterStatus.ABERTO) {
+      throw new ConflictException('Movimentação exige caixa aberto');
+    }
+
+    const movement = await this.prisma.cashMovement.create({
+      data: {
+        cashRegisterId: register.id,
+        type,
+        amount: dec(dto.amount),
+        reason: dto.reason,
+        responsibleId: userId,
+      },
+    });
+    await this.audit.record({
+      action: type === CashMovementType.SANGRIA ? 'CASH_SANGRIA' : 'CASH_SUPRIMENTO',
+      userId,
+      companyId,
+      eventId,
+      entity: 'CashMovement',
+      entityId: movement.id,
+      amount: movement.amount.toNumber(),
+      metadata: { reason: dto.reason },
+    });
+    return movement;
+  }
+
+  async summary(eventId: string, registerId: string) {
+    const register = await this.requireRegister(eventId, registerId);
+    const [movements, sales] = await Promise.all([
+      this.prisma.cashMovement.findMany({ where: { cashRegisterId: register.id } }),
+      this.prisma.sale.findMany({
+        where: { cashRegisterId: register.id, status: 'CONCLUIDA' },
+        select: { total: true },
+      }),
+    ]);
+
+    const suprimentos = sum(
+      movements.filter((m) => m.type === CashMovementType.SUPRIMENTO).map((m) => m.amount),
+    );
+    const sangrias = sum(
+      movements.filter((m) => m.type === CashMovementType.SANGRIA).map((m) => m.amount),
+    );
+    const salesTotal = sum(sales.map((s) => s.total));
+    const expected = dec(register.openingAmount)
+      .plus(salesTotal)
+      .plus(suprimentos)
+      .minus(sangrias);
+
+    return {
+      id: register.id,
+      status: register.status,
+      openingAmount: register.openingAmount,
+      closingAmount: register.closingAmount,
+      salesTotal,
+      suprimentos,
+      sangrias,
+      expectedInDrawer: expected,
+    };
+  }
+
+  private async requireRegister(eventId: string, registerId: string) {
+    const register = await this.prisma.cashRegister.findFirst({
+      where: { id: registerId, eventId },
+    });
+    if (!register) throw new NotFoundException('Caixa não encontrado');
+    return register;
+  }
+}
