@@ -20,7 +20,19 @@ Para quem vai colocar o sistema no ar. Caminho recomendado: **Coolify em 1 VPS**
 7. Rode o seed uma vez (opcional, p/ demo):
    `docker exec <api> npx prisma db seed`.
 
-## Opção B — docker compose (self-host)
+## Opção B — imagens prontas (GHCR), sem build no servidor (recomendado p/ VPS)
+O CI (`.github/workflows/release-images.yml`) publica as imagens da API e do Web no
+**GitHub Container Registry** a cada push na branch/tag. No servidor:
+```bash
+git clone <repo> /opt/dom-bars-pdv && cd /opt/dom-bars-pdv/infra
+cp .env.prod.example .env   # preencha os segredos
+docker compose -f docker-compose.deploy.yml --env-file .env up -d
+curl http://localhost:3000/health
+```
+Sem etapa de build no servidor (puxa imagem pronta). Se a imagem for privada, rode antes
+`docker login ghcr.io` com um token de leitura de packages.
+
+## Opção C — docker compose com build (self-host)
 ```bash
 git clone <repo> /opt/dom-bars-pdv && cd /opt/dom-bars-pdv/infra
 cp .env.prod.example .env   # preencha os segredos

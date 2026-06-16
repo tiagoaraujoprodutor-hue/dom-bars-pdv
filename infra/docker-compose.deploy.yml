@@ -1,0 +1,73 @@
+# Deploy com IMAGENS PRONTAS (GHCR) — sem build no servidor.
+# Pré-requisitos: o workflow "Release images" já publicou as imagens.
+#   cd infra && cp .env.prod.example .env   # preencha os segredos
+#   docker compose -f docker-compose.deploy.yml --env-file .env up -d
+#
+# IMAGE_BASE default aponta para este repositório; troque se fizer fork.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: ${IMAGE_BASE:-ghcr.io/tiagoaraujoprodutor-hue/dom-bars-pdv}-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-2000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  web:
+    image: ${IMAGE_BASE:-ghcr.io/tiagoaraujoprodutor-hue/dom-bars-pdv}-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    depends_on:
+      - api
+    ports:
+      - "3001:3001"
+
+volumes:
+  pgdata:
+  redisdata:
