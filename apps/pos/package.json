@@ -1,0 +1,26 @@
+{
+  "name": "@dom-bars/pos",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "prebuild": "expo prebuild",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"App.tsx\""
+  },
+  "dependencies": {
+    "@dom-bars/shared": "workspace:*",
+    "@react-native-async-storage/async-storage": "3.1.1",
+    "expo": "~56.0.12",
+    "expo-network": "~56.0.5",
+    "expo-sqlite": "~56.0.5",
+    "expo-status-bar": "~56.0.4",
+    "react": "19.2.7",
+    "react-native": "0.82.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.3"
+  }
+}

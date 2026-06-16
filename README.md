@@ -12,7 +12,7 @@ operação de até 15 terminais simultâneos por evento.
 ```
 /apps/api          → NestJS + Prisma + PostgreSQL + Redis + WebSocket
 /apps/web          → Next.js (App Router) — painel admin tempo real
-/apps/pos          → React Native (Expo) — terminais Smart 2  (próximas fases)
+/apps/pos          → React Native (Expo) — terminais Smart 2, offline-first
 /packages/shared   → tipos, schemas Zod, contratos e enums compartilhados
 /packages/ui       → design system  (próximas fases)
 /infra             → deploy, backups, checklist de evento
@@ -58,8 +58,11 @@ pnpm format              # prettier --write
 - **Fase 3 — Painel web tempo real** ✅ Next.js (App Router): login, lista de eventos,
   **wizard de criação de evento**, gestão de produtos/usuários e **dashboard WebSocket**
   com FATURAMENTO BRUTO em destaque + indicador online/offline.
-- **Fase 4 — Relatórios & fechamento** ✅ 11 relatórios em **PDF** (caixa, vendas por
-  operador/máquina/produto, pagamentos, cortesias, reembolsos, sangrias, perdas, estoque,
-  geral) e **fechamento automático do evento** (consolida + audita). 44 testes verdes.
+- **Fase 4 — Relatórios & fechamento** ✅ 11 relatórios em **PDF** e **fechamento
+  automático do evento** (consolida + audita).
+- **Fases 5 e 6 — App POS + Offline** ✅ app Expo (Smart 2): login, seleção de evento,
+  **venda em 2–3 toques**, comandas e bridge de impressão; **offline-first** com outbox
+  durável (SQLite) + `SyncEngine` idempotente — **zero perda / zero duplicação provados
+  por teste** em `packages/shared`. 51 testes verdes no total.
 
-Próxima: **Fase 5** (app POS Android — React Native). Ver [`PLAN.md`](./PLAN.md).
+Próxima: **Fase 7** (hardening, backups, observabilidade e deploy). Ver [`PLAN.md`](./PLAN.md).

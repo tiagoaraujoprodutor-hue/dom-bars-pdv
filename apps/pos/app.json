@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "PDV POS",
+    "slug": "dom-bars-pos",
+    "scheme": "dompos",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "platforms": ["android", "ios"],
+    "android": {
+      "package": "com.dombars.pos"
+    },
+    "plugins": ["expo-sqlite"]
+  }
+}

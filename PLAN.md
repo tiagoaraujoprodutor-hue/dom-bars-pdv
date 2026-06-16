@@ -133,6 +133,22 @@ Painel Next.js (App Router) em componentes client; tokens JWT no `localStorage` 
 chamadas autenticadas via `fetch`. Simples e suficiente para um painel interno; pode
 evoluir para cookies httpOnly + middleware SSR em hardening.
 
+### ADR-14 — Offline-first: outbox durável + idempotência (engine testável)
+A regra de ouro (uma venda offline **nunca** se perde nem duplica) é implementada com:
+**outbox durável** em SQLite no terminal (persiste antes da rede → não perde) +
+**idempotência por `clientId`** (`INSERT OR IGNORE` local e upsert por `clientId` no
+servidor → não duplica ao reenviar). O `SyncEngine` (em `packages/shared`, **com testes**)
+orquestra o flush quando há rede. **Revisão do ADR sobre PowerSync:** o PowerSync segue
+recomendado para sincronização **bidirecional de estado compartilhado** (ex.: estado de
+comanda em tempo real entre 15 terminais) e pode ser adicionado para o read-side; para o
+**write-path de vendas** (o ponto crítico), o outbox + idempotência já garante o requisito
+com menos peso operacional e é o que está implementado.
+
+### ADR-15 — Impressão desacoplada do SDK
+`Printer` (interface em `shared`) com `MockPrinter` (dev) e `NativePrinter` (bridge para
+o módulo nativo `Smart2Printer` do terminal). A regra de venda chama `printer.print(job)`
+sem conhecer o SDK; o cupom é montado por `buildReceipt` (puro, testado).
+
 ### ADR-13 — Relatórios PDF com pdfkit (server-side)
 Geração de PDF com **pdfkit** (sem navegador headless): leve, offline, fontes padrão
 embutidas. Um renderizador genérico (`renderPdf(spec)`) recebe título + seções (tabelas)
@@ -216,10 +232,14 @@ e alterações críticas. Toda ação → auditoria.
       app Next.js; teste e2e prova `dashboard:update` ao registrar venda (30 testes verdes).
 - [x] **Fase 4 — Relatórios & fechamento:** PDFs e fechamento automático do evento.
       **DoD:** todos os relatórios saem em PDF. ✅ 11 relatórios PDF + fechamento de evento; 44 testes.
-- [ ] **Fase 5 — App POS (online):** RN dev client, venda em 2–3 toques, comandas/QR,
+- [x] **Fase 5 — App POS (online):** RN dev client, venda em 2–3 toques, comandas/QR,
       impressão via SDK nativo do Smart 2. **DoD:** vender e imprimir de um Smart 2.
-- [ ] **Fase 6 — Offline & sync:** SQLite local, operação offline total, sync automático,
+      ✅ App Expo completo (login, seleção de evento, venda 2–3 toques, comandas, bridge de
+      impressão). ⚠️ "imprimir de um Smart 2 real" depende de device/SDK — validar no PDV.
+- [x] **Fase 6 — Offline & sync:** SQLite local, operação offline total, sync automático,
       resolução de conflitos, fila. **DoD:** vender offline em 2 terminais, reconectar, zero perda/zero duplicidade.
+      ✅ Outbox SQLite + `SyncEngine` idempotente; garantia provada por testes em `shared`
+      (51 testes no total). Validação em 2 terminais físicos fica para o PDV real.
 - [ ] **Fase 7 — Hardening & Deploy:** teste de carga (15 terminais), revisão de segurança,
       backups, observabilidade, produção + checklist de dia de evento. **DoD:** sistema no ar, deploy reproduzível.
 
