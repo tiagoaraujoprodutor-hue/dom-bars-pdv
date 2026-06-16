@@ -11,7 +11,7 @@ operação de até 15 terminais simultâneos por evento.
 
 ```
 /apps/api          → NestJS + Prisma + PostgreSQL + Redis + WebSocket
-/apps/web          → Next.js (App Router) — painel admin  (próximas fases)
+/apps/web          → Next.js (App Router) — painel admin tempo real
 /apps/pos          → React Native (Expo) — terminais Smart 2  (próximas fases)
 /packages/shared   → tipos, schemas Zod, contratos e enums compartilhados
 /packages/ui       → design system  (próximas fases)
@@ -54,6 +54,9 @@ pnpm format              # prettier --write
 - **Fase 2 — Núcleo operacional (API)** ✅ caixa (abertura/fechamento/sangria/suprimento),
   produtos/estoque, ficha técnica + baixa de insumos, perdas, comandas (QR), vendas
   (idempotentes), abstração de pagamentos (Strategy), taxa de serviço, cortesia/reembolso.
-  **Swagger em `/docs`**. 26 testes verdes.
+  **Swagger em `/docs`**.
+- **Fase 3 — Painel web tempo real** ✅ Next.js (App Router): login, lista de eventos,
+  **wizard de criação de evento**, gestão de produtos/usuários e **dashboard WebSocket**
+  com FATURAMENTO BRUTO em destaque + indicador online/offline. 30 testes verdes.
 
-Próxima: **Fase 3** (painel web tempo real). Ver [`PLAN.md`](./PLAN.md).
+Próxima: **Fase 4** (relatórios PDF & fechamento de evento). Ver [`PLAN.md`](./PLAN.md).

@@ -122,6 +122,17 @@ retorna a venda existente (e trata corrida via P2002). Taxa de serviço é aplic
 `ManualPaymentProvider` cobre PIX/crédito/débito/dinheiro/cortesia hoje; PagBank/PlugPag
 entram registrando um provider, sem tocar na regra de venda.
 
+### ADR-11 — Tempo real (WebSocket) com publish fire-and-forget
+Gateway socket.io no namespace `/events`, salas por evento, conexão autenticada por
+JWT + membership. `RealtimeService.publishDashboard` recalcula o snapshot e emite
+`dashboard:update` de forma **fire-and-forget** (uma falha de WS nunca quebra a venda).
+Dashboard agrega só vendas `CONCLUIDA` (estorno sai do faturamento).
+
+### ADR-12 — Web client-side com tokens no localStorage
+Painel Next.js (App Router) em componentes client; tokens JWT no `localStorage` e
+chamadas autenticadas via `fetch`. Simples e suficiente para um painel interno; pode
+evoluir para cookies httpOnly + middleware SSR em hardening.
+
 ---
 
 ## 5. Engine de offline/sync — DECIDIDO: PowerSync ✅
@@ -192,9 +203,10 @@ e alterações críticas. Toda ação → auditoria.
       baixa de insumos, perdas, comandas (QR), vendas, abstração de pagamentos, taxa de
       serviço, cortesia/reembolso. Swagger. **DoD:** ciclo completo de venda via API com testes.
       ✅ 26 testes verdes; Swagger em `/docs`.
-- [ ] **Fase 3 — Painel web tempo real:** auth, gestão de evento/produtos/usuários, wizard
+- [x] **Fase 3 — Painel web tempo real:** auth, gestão de evento/produtos/usuários, wizard
       de criação de evento, dashboard WebSocket com faturamento bruto em destaque.
-      **DoD:** dashboard reflete vendas em tempo real.
+      **DoD:** dashboard reflete vendas em tempo real. ✅ Gateway WS + dashboard agregado +
+      app Next.js; teste e2e prova `dashboard:update` ao registrar venda (30 testes verdes).
 - [ ] **Fase 4 — Relatórios & fechamento:** PDFs e fechamento automático do evento.
       **DoD:** todos os relatórios saem em PDF.
 - [ ] **Fase 5 — App POS (online):** RN dev client, venda em 2–3 toques, comandas/QR,

@@ -1,0 +1,100 @@
+'use client';
+
+import { FormEvent, use, useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { Topbar } from '@/components/topbar';
+
+interface Product {
+  id: string;
+  name: string;
+  price: string;
+  stock: number;
+  minStock: number;
+  active: boolean;
+}
+
+export default function ProductsPage({ params }: { params: Promise<{ eventId: string }> }) {
+  const { eventId } = use(params);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('');
+  const [stock, setStock] = useState('0');
+  const [error, setError] = useState('');
+
+  function reload() {
+    api<Product[]>(`/events/${eventId}/products`)
+      .then(setProducts)
+      .catch((e) => setError((e as Error).message));
+  }
+
+  useEffect(reload, [eventId]);
+
+  async function onCreate(e: FormEvent) {
+    e.preventDefault();
+    setError('');
+    try {
+      await api(`/events/${eventId}/products`, {
+        method: 'POST',
+        body: { name, price, stock: Number(stock) },
+      });
+      setName('');
+      setPrice('');
+      setStock('0');
+      reload();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  return (
+    <>
+      <Topbar eventId={eventId} />
+      <div className="container">
+        <h1>Produtos</h1>
+        <form className="card row" onSubmit={onCreate} style={{ alignItems: 'flex-end' }}>
+          <div style={{ flex: 2 }}>
+            <label>Nome</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Preço</label>
+            <input value={price} onChange={(e) => setPrice(e.target.value)} required />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Estoque</label>
+            <input type="number" value={stock} onChange={(e) => setStock(e.target.value)} />
+          </div>
+          <button type="submit">Adicionar</button>
+        </form>
+        {error && <div className="error">{error}</div>}
+
+        <div className="card" style={{ marginTop: 16 }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Preço</th>
+                <th>Estoque</th>
+                <th>Mínimo</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.name}</td>
+                  <td>{Number(p.price).toFixed(2)}</td>
+                  <td style={{ color: p.stock <= p.minStock ? 'var(--danger)' : undefined }}>
+                    {p.stock}
+                  </td>
+                  <td>{p.minStock}</td>
+                  <td>{p.active ? 'Ativo' : 'Inativo'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}

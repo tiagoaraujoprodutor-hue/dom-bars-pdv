@@ -28,6 +28,7 @@ jobs:
       DATABASE_URL: postgresql://pdv:pdv@localhost:5432/pdv_test?schema=public
       JWT_SECRET: ci-secret-key-change-me
       JWT_REFRESH_SECRET: ci-refresh-secret-change-me
+      NEXT_TELEMETRY_DISABLED: "1"
 
     steps:
       - uses: actions/checkout@v4

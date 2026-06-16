@@ -4,6 +4,7 @@ import { AdminPasswordService } from '../auth/admin-password.service';
 import { AuditService } from '../audit/audit.service';
 import { dec, sum } from '../common/money';
 import { PrismaService } from '../prisma/prisma.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { CashMovementDto, CloseCashDto, OpenCashDto } from './dto/cash.dto';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class CashService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly adminPassword: AdminPasswordService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   /** Caixa aberto do evento (regra: um caixa aberto por evento por vez). */
@@ -99,6 +101,7 @@ export class CashService {
       amount: movement.amount.toNumber(),
       metadata: { reason: dto.reason },
     });
+    this.realtime.publishDashboard(eventId);
     return movement;
   }
 

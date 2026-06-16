@@ -11,6 +11,7 @@ import { DecimalInput, dec, sum } from '../common/money';
 import { InventoryService } from '../inventory/inventory.service';
 import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { CancelSaleDto } from './dto/sales.dto';
 
 export interface SaleLine {
@@ -44,6 +45,7 @@ export class SalesService {
     private readonly payments: PaymentsService,
     private readonly audit: AuditService,
     private readonly adminPassword: AdminPasswordService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   /**
@@ -175,6 +177,7 @@ export class SalesService {
       metadata: { clientId: input.clientId, tabId: input.tabId ?? null },
     });
 
+    this.realtime.publishDashboard(input.eventId);
     return sale;
   }
 
@@ -235,6 +238,7 @@ export class SalesService {
       metadata: { reason: dto.reason },
     });
 
+    this.realtime.publishDashboard(eventId);
     return this.getSale(eventId, sale.id);
   }
 }

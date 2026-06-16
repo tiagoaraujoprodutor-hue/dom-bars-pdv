@@ -28,7 +28,10 @@ pnpm install           # instala dependências do monorepo
 pnpm dev               # sobe todos os apps em modo dev
 ```
 
-Healthcheck da API: `GET /health`.
+Healthcheck da API: `GET /health`. Swagger: `GET /docs`.
+
+Painel web (Next.js) em `apps/web`: `pnpm --filter @dom-bars/web dev` (porta 3001);
+configure `NEXT_PUBLIC_API_URL`. Dashboard em tempo real via WebSocket (`/events`).
 
 ### Banco (Prisma) — em `apps/api`
 
