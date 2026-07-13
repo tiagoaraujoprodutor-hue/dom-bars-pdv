@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { hashPassword } from '../auth/password.util';
 import { normalizeCpf } from '../common/cpf';
@@ -128,5 +129,51 @@ export class AttendantsService {
     });
 
     return { userId, role: updated.role, active: updated.active, expiresAt: updated.expiresAt, status: statusOf(updated) };
+  }
+
+  /**
+   * Fechamento por atendente: quanto cada um vendeu (total + formas de pagamento),
+   * para conferência no fechamento do evento. Opcionalmente filtra por CPF.
+   */
+  async closing(eventId: string, cpfFilter?: string) {
+    const sales = await this.prisma.$queryRaw<
+      { operatorId: string; vendas: bigint; total: Prisma.Decimal }[]
+    >`
+      SELECT "operatorId", COUNT(*) AS vendas, COALESCE(SUM(total), 0) AS total
+      FROM "Sale" WHERE "eventId" = ${eventId} AND status = 'CONCLUIDA'
+      GROUP BY "operatorId"`;
+
+    const payments = await this.prisma.$queryRaw<
+      { operatorId: string; method: string; total: Prisma.Decimal }[]
+    >`
+      SELECT s."operatorId" AS "operatorId", p.method AS method, COALESCE(SUM(p.amount), 0) AS total
+      FROM "Payment" p JOIN "Sale" s ON s.id = p."saleId"
+      WHERE s."eventId" = ${eventId} AND s.status = 'CONCLUIDA'
+      GROUP BY s."operatorId", p.method`;
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: sales.map((s) => s.operatorId) } },
+      select: { id: true, name: true, cpf: true },
+    });
+    const byUser = new Map(users.map((u) => [u.id, u]));
+
+    let result = sales
+      .map((s) => ({
+        userId: s.operatorId,
+        name: byUser.get(s.operatorId)?.name ?? s.operatorId,
+        cpf: byUser.get(s.operatorId)?.cpf ?? null,
+        vendas: Number(s.vendas),
+        total: Number(s.total).toFixed(2),
+        porFormaPagamento: payments
+          .filter((p) => p.operatorId === s.operatorId)
+          .map((p) => ({ method: p.method, total: Number(p.total).toFixed(2) })),
+      }))
+      .sort((a, b) => Number(b.total) - Number(a.total));
+
+    if (cpfFilter) {
+      const cpf = normalizeCpf(cpfFilter);
+      result = result.filter((r) => r.cpf === cpf);
+    }
+    return result;
   }
 }

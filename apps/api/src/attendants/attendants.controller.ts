@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { AuthUser, EventScope } from '../auth/auth.types';
@@ -32,6 +32,13 @@ export class AttendantsController {
   @Get()
   list(@EventScopeParam() scope: EventScope) {
     return this.attendants.list(scope.eventId);
+  }
+
+  /** Fechamento por atendente (busca opcional por CPF). Supervisor também acessa. */
+  @Get('closing')
+  @Roles(Role.SUPERVISOR, Role.ADMINISTRADOR)
+  closing(@EventScopeParam() scope: EventScope, @Query('cpf') cpf?: string) {
+    return this.attendants.closing(scope.eventId, cpf);
   }
 
   @Post()

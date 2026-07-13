@@ -86,6 +86,12 @@ export class ReportsController {
     return this.pdf('estoque', this.reports.stock(scope.eventId));
   }
 
+  @Get('attendant/:userId')
+  @Header('Content-Type', 'application/pdf')
+  attendant(@EventScopeParam() scope: EventScope, @Param('userId') userId: string) {
+    return this.pdf('fechamento-atendente', this.reports.attendantClosing(scope.eventId, userId));
+  }
+
   @Get('general')
   @Header('Content-Type', 'application/pdf')
   general(@EventScopeParam() scope: EventScope) {

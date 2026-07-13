@@ -2,6 +2,7 @@
 
 import { FormEvent, use, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { maskCpf } from '@/lib/cpf';
 import { Topbar } from '@/components/topbar';
 
 interface Attendant {
@@ -88,7 +89,13 @@ export default function AttendantsPage({ params }: { params: Promise<{ eventId: 
           </div>
           <div style={{ flex: 1 }}>
             <label>CPF</label>
-            <input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" required />
+            <input
+              value={cpf}
+              onChange={(e) => setCpf(maskCpf(e.target.value))}
+              placeholder="000.000.000-00"
+              inputMode="numeric"
+              required
+            />
           </div>
           <div style={{ flex: 1 }}>
             <label>Senha</label>
@@ -126,7 +133,7 @@ export default function AttendantsPage({ params }: { params: Promise<{ eventId: 
               {list.map((a) => (
                 <tr key={a.userId}>
                   <td>{a.name}</td>
-                  <td>{a.cpf}</td>
+                  <td>{maskCpf(a.cpf)}</td>
                   <td>{a.role}</td>
                   <td>{a.expiresAt ? new Date(a.expiresAt).toLocaleString('pt-BR') : '—'}</td>
                   <td>

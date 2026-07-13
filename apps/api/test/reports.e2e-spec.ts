@@ -54,6 +54,8 @@ describe('Relatórios PDF e fechamento de evento (e2e)', () => {
       await prisma.user.create({ data: { id, companyId, name: email, email, passwordHash } });
       await prisma.eventMembership.create({ data: { userId: id, eventId, role } });
     }
+    // Operador com CPF, para testar a busca de fechamento por CPF.
+    await prisma.user.update({ where: { id: 'rep-oper' }, data: { cpf: '11144477735' } });
     await prisma.product.create({
       data: { id: PROD, eventId, name: 'Refri', price: '8.00', stock: 100 },
     });
@@ -138,6 +140,36 @@ describe('Relatórios PDF e fechamento de evento (e2e)', () => {
       .set(auth(adminToken))
       .send({ adminPassword: 'errada' });
     expect(bad.status).toBe(403);
+  });
+
+  it('fechamento por atendente: agrega por operador', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/events/${eventId}/attendants/closing`)
+      .set(auth(adminToken));
+    expect(res.status).toBe(200);
+    const oper = (res.body as { userId: string; vendas: number }[]).find(
+      (a) => a.userId === 'rep-oper',
+    );
+    expect(oper?.vendas).toBeGreaterThanOrEqual(1);
+  });
+
+  it('fechamento por atendente: busca por CPF', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/events/${eventId}/attendants/closing?cpf=111.444.777-35`)
+      .set(auth(adminToken));
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].userId).toBe('rep-oper');
+  });
+
+  it('gera PDF de fechamento de um atendente', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/events/${eventId}/reports/attendant/rep-oper`)
+      .set(auth(adminToken))
+      .buffer()
+      .parse(binaryParser);
+    expect(res.status).toBe(200);
+    expect((res.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
   });
 
   it('fecha o evento, consolida e audita', async () => {

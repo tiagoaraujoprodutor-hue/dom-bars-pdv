@@ -228,6 +228,45 @@ export class ReportsService {
     };
   }
 
+  /** Fechamento individual de um atendente (por operador). */
+  async attendantClosing(eventId: string, userId: string): Promise<ReportSpec> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, cpf: true },
+    });
+    if (!user) throw new NotFoundException('Atendente não encontrado');
+
+    const [agg] = await this.prisma.$queryRaw<{ vendas: bigint; total: Prisma.Decimal }[]>`
+      SELECT COUNT(*) AS vendas, COALESCE(SUM(total), 0) AS total FROM "Sale"
+      WHERE "eventId" = ${eventId} AND status = 'CONCLUIDA' AND "operatorId" = ${userId}`;
+
+    const pays = await this.prisma.$queryRaw<{ method: string; total: Prisma.Decimal }[]>`
+      SELECT p.method AS method, COALESCE(SUM(p.amount), 0) AS total FROM "Payment" p
+      JOIN "Sale" s ON s.id = p."saleId"
+      WHERE s."eventId" = ${eventId} AND s.status = 'CONCLUIDA' AND s."operatorId" = ${userId}
+      GROUP BY p.method`;
+
+    return {
+      title: 'Fechamento do Atendente',
+      subtitle: `${user.name}${user.cpf ? ` · CPF ${user.cpf}` : ''}`,
+      sections: [
+        {
+          heading: 'Resumo',
+          columns: ['Item', 'Valor'],
+          rows: [
+            ['Vendas', Number(agg?.vendas ?? 0)],
+            ['Total (R$)', fmt(agg?.total)],
+          ],
+        },
+        {
+          heading: 'Por forma de pagamento',
+          columns: ['Forma', 'Total (R$)'],
+          rows: pays.map((p) => [p.method, fmt(p.total)]),
+        },
+      ],
+    };
+  }
+
   /** Relatório geral — consolidação do evento (usado no fechamento). */
   async general(eventId: string): Promise<ReportSpec> {
     const [name, snap, perdas] = await Promise.all([

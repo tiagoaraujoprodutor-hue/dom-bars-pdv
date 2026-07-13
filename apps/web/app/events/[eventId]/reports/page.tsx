@@ -2,7 +2,17 @@
 
 import { FormEvent, use, useState } from 'react';
 import { api, openPdf } from '@/lib/api';
+import { maskCpf } from '@/lib/cpf';
 import { Topbar } from '@/components/topbar';
+
+interface AttendantClosing {
+  userId: string;
+  name: string;
+  cpf: string | null;
+  vendas: number;
+  total: string;
+  porFormaPagamento: { method: string; total: string }[];
+}
 
 const REPORTS: { path: string; label: string }[] = [
   { path: 'general', label: 'Relatório geral' },
@@ -22,6 +32,8 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
   const [error, setError] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [closeResult, setCloseResult] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [closing, setClosing] = useState<AttendantClosing[] | null>(null);
 
   async function download(path: string) {
     setError('');
@@ -29,6 +41,18 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
       await openPdf(`/events/${eventId}/reports/${path}`);
     } catch (e) {
       setError((e as Error).message);
+    }
+  }
+
+  async function searchClosing(e?: FormEvent) {
+    e?.preventDefault();
+    setError('');
+    try {
+      const query = cpf ? `?cpf=${encodeURIComponent(cpf)}` : '';
+      const data = await api<AttendantClosing[]>(`/events/${eventId}/attendants/closing${query}`);
+      setClosing(data);
+    } catch (err) {
+      setError((err as Error).message);
     }
   }
 
@@ -62,6 +86,79 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
               ⬇ {r.label}
             </button>
           ))}
+        </div>
+
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3>Fechamento por atendente</h3>
+          <p className="muted">Busque pelo CPF (ou liste todos) para conferir e imprimir o fechamento de cada atendente.</p>
+          <form className="row" onSubmit={searchClosing} style={{ alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <label>CPF</label>
+              <input
+                value={cpf}
+                onChange={(e) => setCpf(maskCpf(e.target.value))}
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+              />
+            </div>
+            <button type="submit">Buscar</button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                setCpf('');
+                setClosing(null);
+                void api<AttendantClosing[]>(`/events/${eventId}/attendants/closing`)
+                  .then(setClosing)
+                  .catch((err) => setError((err as Error).message));
+              }}
+            >
+              Listar todos
+            </button>
+          </form>
+
+          {closing && (
+            <table style={{ marginTop: 12 }}>
+              <thead>
+                <tr>
+                  <th>Atendente</th>
+                  <th>CPF</th>
+                  <th>Vendas</th>
+                  <th>Total</th>
+                  <th>Formas</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {closing.map((a) => (
+                  <tr key={a.userId}>
+                    <td>{a.name}</td>
+                    <td>{a.cpf ? maskCpf(a.cpf) : '—'}</td>
+                    <td>{a.vendas}</td>
+                    <td>R$ {Number(a.total).toFixed(2)}</td>
+                    <td>
+                      {a.porFormaPagamento.map((p) => `${p.method}: ${Number(p.total).toFixed(2)}`).join(' · ')}
+                    </td>
+                    <td>
+                      <button
+                        className="secondary"
+                        onClick={() => download(`attendant/${a.userId}`)}
+                      >
+                        PDF
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {closing.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="muted">
+                      Nenhum atendente encontrado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="card" style={{ marginTop: 16 }}>
