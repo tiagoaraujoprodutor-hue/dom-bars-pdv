@@ -51,14 +51,9 @@ Login demo: `admin@demo.com` / `senha123` · senha admin do evento demo: `admin1
 2. **Painel no Netlify:** após a API ter URL, seguir `infra/DEPLOY_NETLIFY.md`
    (ou pedir para o Claude publicar via integração). Config pronta em `netlify.toml`.
 3. **APK do terminal:** `cd apps/pos && eas login && eas init && eas build -p android --profile preview`.
-4. **Impressora Smart 2 (BLOQUEADO por info):** informar a **marca/modelo** do terminal
-   (Sunmi/PAX/Gertec/…) e ter o **SDK/.aar** do fabricante. Aí preencher o
-   `apps/pos/modules/smart2-printer/android/.../Smart2PrinterModule.kt` (hoje só faz log)
-   e a dependência do SDK no `build.gradle` do módulo.
-
-## Pergunta aberta (última interação)
-O Claude perguntou **qual a marca/modelo do "Smart 2"** para escrever o código de impressão
-exato. Responder isso destrava a impressão real.
+4. **Impressora Smart POS P2 (RESOLVIDO):** identificado como **Sunmi P2**. Impressão já
+   implementada com a biblioteca oficial `com.sunmi:printerlibrary` (Maven Central) em
+   `apps/pos/modules/smart2-printer/`. Sem SDK externo. Só validar no aparelho após gerar o APK.
 
 ## Documentos-chave
 - Arquitetura/decisões: `PLAN.md` · Convenções: `CLAUDE.md`

@@ -20,7 +20,7 @@ android {
 }
 
 dependencies {
-  // 1) Coloque o SDK da impressora do Smart 2 em libs/ e descomente:
-  // implementation files('libs/printer-sdk.aar')
-  // (ou a dependência maven do fabricante, ex.: Sunmi)
+  // Biblioteca oficial da impressora Sunmi (Smart POS P2 = Sunmi P2).
+  // Resolve do Maven Central — não precisa de SDK/.aar do fabricante.
+  implementation 'com.sunmi:printerlibrary:1.0.18'
 }

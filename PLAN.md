@@ -240,8 +240,9 @@ e alterações críticas. Toda ação → auditoria.
       **DoD:** todos os relatórios saem em PDF. ✅ 11 relatórios PDF + fechamento de evento; 44 testes.
 - [x] **Fase 5 — App POS (online):** RN dev client, venda em 2–3 toques, comandas/QR,
       impressão via SDK nativo do Smart 2. **DoD:** vender e imprimir de um Smart 2.
-      ✅ App Expo completo (login, seleção de evento, venda 2–3 toques, comandas, bridge de
-      impressão). ⚠️ "imprimir de um Smart 2 real" depende de device/SDK — validar no PDV.
+      ✅ App Expo completo (login, seleção de evento, venda 2–3 toques, comandas). Impressão
+      **implementada** para o **Smart POS P2 = Sunmi P2** via biblioteca oficial Sunmi
+      (`com.sunmi:printerlibrary`, Maven Central — sem SDK/.aar externo). Validar no device real.
 - [x] **Fase 6 — Offline & sync:** SQLite local, operação offline total, sync automático,
       resolução de conflitos, fila. **DoD:** vender offline em 2 terminais, reconectar, zero perda/zero duplicidade.
       ✅ Outbox SQLite + `SyncEngine` idempotente; garantia provada por testes em `shared`

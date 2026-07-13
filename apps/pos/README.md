@@ -45,21 +45,24 @@ internamente). Perfis em `eas.json`: `preview`/`development` = APK, `production`
 > Ajuste `EXPO_PUBLIC_API_URL` (em `.env` ou nas env vars do build EAS) para a URL pública
 > da API antes de gerar o APK que vai para os terminais.
 
-## Habilitar a impressora do Smart 2 (módulo nativo já scaffoldado)
+## Impressora do Smart POS P2 (Sunmi P2) — já implementada
 
-O módulo nativo **já existe** em `modules/smart2-printer/` (Expo Module local, auto-linkado)
-e o bridge JS (`src/lib/printer.ts`) já o consome com fallback automático para o MockPrinter.
-Para imprimir de verdade, só falta plugar o SDK do fabricante:
+O terminal **Smart POS P2 é um Sunmi P2**, com impressora térmica integrada. O módulo
+nativo `modules/smart2-printer/` já usa a **biblioteca oficial da Sunmi**
+(`com.sunmi:printerlibrary`, do Maven Central) — **não é preciso obter nenhum SDK/.aar**
+do fabricante.
 
-1. Copie o SDK da impressora (`.aar`/`.jar` do Smart 2) para
-   `modules/smart2-printer/android/libs/` e descomente a linha `implementation files(...)`
-   em `modules/smart2-printer/android/build.gradle`.
-2. Em `modules/smart2-printer/android/.../Smart2PrinterModule.kt`, troque o corpo de
-   `printLines` pela chamada real do SDK (há exemplos Sunmi/ESC-POS comentados no arquivo).
-3. Rebuild: `eas build -p android --profile preview` (ou `expo run:android`). Nada mais muda —
-   `printer.print(job)` passa a sair na térmica.
+Funciona assim:
+- No boot, o módulo faz `bindService` ao serviço interno de impressão do P2.
+- `printer.print(job)` (em `src/lib/printer.ts`) chama `printLines`, que roda
+  `printerInit` → `printText` linha a linha → `lineWrap(3)`.
+- Fora de um Sunmi (dev/emulador sem o serviço), cai no `MockPrinter` — o app não quebra.
 
-> Sem o SDK, o app roda normalmente e a impressão vira no-op/log (não quebra a venda).
+Basta gerar o APK (`eas build -p android --profile preview`) e instalar no P2: a impressão
+já sai na térmica. Nenhum passo extra.
+
+> Se um dia usar outro terminal (PAX/Gertec/etc.), troque só o corpo de `printLines` no
+> `Smart2PrinterModule.kt` pelo SDK correspondente — o resto do app não muda (ADR-15).
 
 ## Fluxo de venda (2–3 toques)
 
