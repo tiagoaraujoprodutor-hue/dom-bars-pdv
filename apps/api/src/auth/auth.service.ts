@@ -1,7 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { AuditService } from '../audit/audit.service';
+import { normalizeCpf } from '../common/cpf';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AuthUser,
@@ -20,7 +21,7 @@ export interface LoginResult extends TokenPair {
   user: {
     id: string;
     name: string;
-    email: string;
+    email: string | null;
     companyId: string;
     memberships: { eventId: string; role: string }[];
   };
@@ -35,20 +36,91 @@ export class AuthService {
     private readonly audit: AuditService,
   ) {}
 
-  async login(email: string, password: string, machineId?: string): Promise<LoginResult> {
+  async login(input: {
+    email?: string;
+    cpf?: string;
+    password: string;
+    machineId?: string;
+  }): Promise<LoginResult> {
+    if (input.cpf) {
+      return this.loginByCpf(normalizeCpf(input.cpf), input.password, input.machineId);
+    }
+    if (input.email) {
+      return this.loginByEmail(input.email, input.password, input.machineId);
+    }
+    throw new UnauthorizedException('Credenciais inválidas');
+  }
+
+  /** Login de admin/supervisor por e-mail (senha global do usuário). */
+  private async loginByEmail(email: string, password: string, machineId?: string): Promise<LoginResult> {
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { memberships: { select: { eventId: true, role: true } } },
     });
 
-    if (!user || !user.active || !(await verifyPassword(user.passwordHash, password))) {
+    if (
+      !user ||
+      !user.active ||
+      !user.passwordHash ||
+      !(await verifyPassword(user.passwordHash, password))
+    ) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    return this.finishLogin(user, machineId);
+  }
+
+  /**
+   * Login de atendente por CPF. A senha fica NA VINCULAÇÃO com o evento
+   * (EventMembership) e tem validade/ativação controladas pelo Admin. Se a senha
+   * bate mas o acesso está expirado/desativado, bloqueia com mensagem clara.
+   */
+  private async loginByCpf(cpf: string, password: string, machineId?: string): Promise<LoginResult> {
+    const user = await this.prisma.user.findUnique({
+      where: { cpf },
+      include: { memberships: true },
+    });
+    if (!user || !user.active) {
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+
+    let matched: (typeof user.memberships)[number] | null = null;
+    for (const membership of user.memberships) {
+      if (membership.passwordHash && (await verifyPassword(membership.passwordHash, password))) {
+        matched = membership;
+        break;
+      }
+    }
+    if (!matched) {
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+    if (!matched.active) {
+      throw new ForbiddenException('Acesso desativado para este evento. Fale com o administrador.');
+    }
+    if (matched.expiresAt && matched.expiresAt.getTime() < Date.now()) {
+      throw new ForbiddenException('Senha expirada para este evento. Fale com o administrador.');
+    }
+
+    return this.finishLogin(
+      { ...user, memberships: user.memberships.map((m) => ({ eventId: m.eventId, role: m.role })) },
+      machineId,
+    );
+  }
+
+  private async finishLogin(
+    user: {
+      id: string;
+      name: string;
+      email: string | null;
+      companyId: string;
+      memberships: { eventId: string; role: string }[];
+    },
+    machineId?: string,
+  ): Promise<LoginResult> {
     const tokens = await this.issueTokens({
       userId: user.id,
       companyId: user.companyId,
-      email: user.email,
+      email: user.email ?? '',
     });
 
     await this.audit.record({
@@ -103,7 +175,7 @@ export class AuthService {
     return this.issueTokens({
       userId: user.id,
       companyId: user.companyId,
-      email: user.email,
+      email: user.email ?? '',
     });
   }
 

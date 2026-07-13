@@ -20,11 +20,16 @@ interface LoginResponse {
   user: AuthUser;
 }
 
-export async function login(email: string, password: string, machineId: string): Promise<AuthUser> {
-  const res = await api<LoginResponse>('/auth/login', {
-    method: 'POST',
-    body: { email, password, machineId },
-  });
+/**
+ * Login por CPF (atendente) ou e-mail (admin/supervisor). Detecta pelo formato:
+ * se tiver '@' é e-mail; senão trata como CPF (só dígitos).
+ */
+export async function login(identifier: string, password: string, machineId: string): Promise<AuthUser> {
+  const isEmail = identifier.includes('@');
+  const body = isEmail
+    ? { email: identifier.trim(), password, machineId }
+    : { cpf: identifier.replace(/\D/g, ''), password, machineId };
+  const res = await api<LoginResponse>('/auth/login', { method: 'POST', body });
   await AsyncStorage.multiSet([
     ['accessToken', res.accessToken],
     ['refreshToken', res.refreshToken],

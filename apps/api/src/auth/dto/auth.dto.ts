@@ -1,10 +1,15 @@
 import { z } from 'zod';
 
-export const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-  machineId: z.string().optional(),
-});
+export const loginSchema = z
+  .object({
+    email: z.string().email().optional(),
+    cpf: z.string().min(1).optional(),
+    password: z.string().min(1),
+    machineId: z.string().optional(),
+  })
+  .refine((d) => Boolean(d.email) || Boolean(d.cpf), {
+    message: 'Informe e-mail ou CPF',
+  });
 export type LoginDto = z.infer<typeof loginSchema>;
 
 export const refreshSchema = z.object({

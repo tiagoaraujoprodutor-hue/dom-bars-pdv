@@ -33,6 +33,13 @@ export class EventScopeGuard implements CanActivate {
     if (!membership) {
       throw new ForbiddenException('Sem acesso a este evento');
     }
+    // Controle do Admin sobre atendentes: desativação e validade por evento.
+    if (!membership.active) {
+      throw new ForbiddenException('Acesso desativado para este evento');
+    }
+    if (membership.expiresAt && membership.expiresAt.getTime() < Date.now()) {
+      throw new ForbiddenException('Acesso expirado para este evento');
+    }
 
     request.eventScope = { eventId, role: membership.role };
     return true;

@@ -45,6 +45,7 @@ pnpm --filter @dom-bars/api prisma:seed        # popula empresa/evento/usuários
 
 Credenciais demo (seed): usuários `operador@demo.com`, `supervisor@demo.com`,
 `admin@demo.com` (senha `senha123`); senha admin do evento: `admin123`.
+Atendente demo (login por CPF): `11144477735` / `atendente123`.
 
 > Migrations especiais escritas em SQL puro (ex.: trigger append-only de auditoria)
 > ficam em `apps/api/prisma/migrations/*` com timestamp posterior ao `init`.

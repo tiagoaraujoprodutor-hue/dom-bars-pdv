@@ -144,6 +144,18 @@ comanda em tempo real entre 15 terminais) e pode ser adicionado para o read-side
 **write-path de vendas** (o ponto crítico), o outbox + idempotência já garante o requisito
 com menos peso operacional e é o que está implementado.
 
+### ADR-17 — Atendentes: login por CPF com credencial por evento
+Atendentes logam por **CPF**; a **senha, a validade (`expiresAt`) e o ativo/inativo ficam
+na vinculação com o evento** (`EventMembership`), controlados pelo Admin. Assim o mesmo
+atendente troca de máquina livremente e o fechamento é rastreado por ele (relatório "por
+operador"). Admin/supervisor seguem logando por e-mail (senha global no `User`). Regras:
+- Login por CPF valida a senha da membership; se casar mas estiver **expirada/desativada**,
+  bloqueia com mensagem clara.
+- O `EventScopeGuard` também rejeita membership inativa/expirada — então revogar acesso
+  vale na hora, mesmo com token válido.
+- `User.email`/`User.passwordHash` viraram opcionais; `User.cpf` único. CPF validado com
+  dígitos verificadores.
+
 ### ADR-16 — Rate limit dimensionado por evento (achado do teste de carga)
 O teste de carga (15 terminais) revelou que o limite default (100 req/min) barrava o pico
 de vendas com 429. Ajustado para **2000 req/min** (configurável por `THROTTLE_LIMIT`), pois

@@ -14,6 +14,7 @@ export function Topbar({ eventId }: { eventId?: string }) {
         <>
           <Link href={`/events/${eventId}/dashboard`}>Dashboard</Link>
           <Link href={`/events/${eventId}/products`}>Produtos</Link>
+          <Link href={`/events/${eventId}/attendants`}>Atendentes</Link>
           <Link href={`/events/${eventId}/users`}>Usuários</Link>
           <Link href={`/events/${eventId}/reports`}>Relatórios</Link>
         </>

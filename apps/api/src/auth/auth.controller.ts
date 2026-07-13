@@ -24,7 +24,12 @@ export class AuthController {
   @Post('login')
   @HttpCode(200)
   login(@Body(new ZodValidationPipe(loginSchema)) dto: LoginDto) {
-    return this.authService.login(dto.email, dto.password, dto.machineId);
+    return this.authService.login({
+      email: dto.email,
+      cpf: dto.cpf,
+      password: dto.password,
+      machineId: dto.machineId,
+    });
   }
 
   @Post('refresh')

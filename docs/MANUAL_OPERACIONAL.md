@@ -9,8 +9,16 @@ Para quem **opera o evento** — linguagem do dia a dia, sem termos técnicos.
   estoque, cadastrar usuários e **encerrar o evento**. Ações críticas pedem a
   **senha administrativa do evento**.
 
+## Atendentes (login por CPF)
+- O **Administrador** cadastra cada atendente na aba **Atendentes** do painel: nome, **CPF**,
+  senha e (opcional) **validade** para o evento.
+- A atendente entra no terminal com o **CPF + senha**. Como o login é dela (não da máquina),
+  se o aparelho descarregar, ela entra o mesmo login em **outra máquina carregada** e continua.
+- O Admin pode **desativar** ou **expirar** o acesso a qualquer momento — passa a valer na hora.
+- O fechamento e os relatórios saem **por atendente** (por operador).
+
 ## Antes de vender
-1. Faça **login** no terminal e **escolha o evento**.
+1. Faça **login** no terminal (CPF da atendente) e **escolha o evento**.
 2. **Abra o caixa** informando o valor inicial. *Sem caixa aberto, não vende.*
 
 ## Vender (rápido, 2–3 toques)

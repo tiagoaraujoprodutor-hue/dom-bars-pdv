@@ -42,6 +42,10 @@ Toda rota de evento é protegida por `JwtAuthGuard → EventScopeGuard → Roles
 - **Config do evento**: `GET/PATCH /events/:id/config` (taxa de serviço).
 - **Dashboard/Tempo real**: `GET /events/:id/dashboard`; WebSocket `/events` (`dashboard:update`).
 - **Usuários**: `GET/POST /events/:id/users`. **Wizard**: `GET/POST /events`.
+- **Atendentes (login por CPF, senha com validade por evento — admin):**
+  `GET/POST /events/:id/attendants`, `PATCH /events/:id/attendants/:userId`
+  (ativar/desativar, redefinir senha, definir validade). Login: `POST /auth/login`
+  aceita `{ email }` (admin) ou `{ cpf }` (atendente) + `password`.
 - **Relatórios PDF**: `GET /events/:id/reports/{general,cash/:registerId,sales-by-operator,
   sales-by-machine,sales-by-product,payments,courtesies,refunds,cash-movements,losses,stock}`.
 - **Fechamento do evento**: `POST /events/:id/close` (admin + senha admin).

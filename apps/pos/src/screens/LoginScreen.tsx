@@ -4,8 +4,8 @@ import { login, type AuthUser } from '../lib/auth';
 import { styles } from '../theme';
 
 export function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) {
-  const [email, setEmail] = useState('operador@demo.com');
-  const [password, setPassword] = useState('senha123');
+  const [identifier, setIdentifier] = useState('11144477735');
+  const [password, setPassword] = useState('atendente123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -13,7 +13,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) 
     setError('');
     setLoading(true);
     try {
-      const user = await login(email, password, 'smart2-terminal');
+      const user = await login(identifier, password, 'smart2-terminal');
       onLogin(user);
     } catch (err) {
       setError((err as Error).message);
@@ -26,14 +26,13 @@ export function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) 
     <View style={styles.screen}>
       <View style={{ flex: 1, justifyContent: 'center' }}>
         <Text style={styles.title}>PDV · Terminal</Text>
-        <Text style={styles.subtitle}>Entre para abrir a operação.</Text>
+        <Text style={styles.subtitle}>Entre com seu CPF (atendente) ou e-mail.</Text>
         <TextInput
           style={styles.input}
-          value={email}
-          onChangeText={setEmail}
+          value={identifier}
+          onChangeText={setIdentifier}
           autoCapitalize="none"
-          keyboardType="email-address"
-          placeholder="E-mail"
+          placeholder="CPF ou e-mail"
           placeholderTextColor="#6b7794"
         />
         <TextInput

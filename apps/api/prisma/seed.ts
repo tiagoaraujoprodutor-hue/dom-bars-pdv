@@ -48,6 +48,25 @@ async function main(): Promise<void> {
     });
   }
 
+  // Atendente demo: login por CPF, senha válida por evento (controlada pelo Admin).
+  const attendantCpf = '11144477735'; // CPF de teste válido
+  const attendant = await prisma.user.upsert({
+    where: { cpf: attendantCpf },
+    update: {},
+    create: { name: 'Carla Atendente', cpf: attendantCpf, companyId: company.id },
+  });
+  await prisma.eventMembership.upsert({
+    where: { userId_eventId: { userId: attendant.id, eventId: event.id } },
+    update: { passwordHash: await argon2.hash('atendente123') },
+    create: {
+      userId: attendant.id,
+      eventId: event.id,
+      role: Role.OPERADOR,
+      passwordHash: await argon2.hash('atendente123'),
+      active: true,
+    },
+  });
+
   // Ficha técnica de exemplo: Caipirinha = 50ml vodka + 1 limão + 20g açúcar.
   const category = await prisma.category.upsert({
     where: { id: 'demo-cat-drinks' },
@@ -92,6 +111,7 @@ async function main(): Promise<void> {
   console.log(`  Empresa: ${company.name}`);
   console.log(`  Evento: ${event.name} (senha admin: ${DEMO_ADMIN_PASSWORD})`);
   console.log(`  Usuários (senha: ${DEMO_PASSWORD}): ${profiles.map((p) => p.email).join(', ')}`);
+  console.log(`  Atendente (login por CPF): ${attendantCpf} / atendente123`);
 }
 
 main()
