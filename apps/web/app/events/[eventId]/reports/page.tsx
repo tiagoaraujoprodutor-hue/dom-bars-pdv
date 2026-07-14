@@ -12,6 +12,15 @@ interface AttendantClosing {
   vendas: number;
   total: string;
   porFormaPagamento: { method: string; total: string }[];
+  caixaInicial: string;
+  suprimentos: string;
+  sangrias: string;
+  vendasDinheiro: string;
+  caixaEsperado: string;
+}
+
+function brl(v: string): string {
+  return `R$ ${Number(v).toFixed(2)}`;
 }
 
 const REPORTS: { path: string; label: string }[] = [
@@ -118,46 +127,49 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
           </form>
 
           {closing && (
-            <table style={{ marginTop: 12 }}>
-              <thead>
-                <tr>
-                  <th>Atendente</th>
-                  <th>CPF</th>
-                  <th>Vendas</th>
-                  <th>Total</th>
-                  <th>Formas</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {closing.map((a) => (
-                  <tr key={a.userId}>
-                    <td>{a.name}</td>
-                    <td>{a.cpf ? maskCpf(a.cpf) : '—'}</td>
-                    <td>{a.vendas}</td>
-                    <td>R$ {Number(a.total).toFixed(2)}</td>
-                    <td>
-                      {a.porFormaPagamento.map((p) => `${p.method}: ${Number(p.total).toFixed(2)}`).join(' · ')}
-                    </td>
-                    <td>
-                      <button
-                        className="secondary"
-                        onClick={() => download(`attendant/${a.userId}`)}
-                      >
-                        PDF
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {closing.length === 0 && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ marginTop: 12, minWidth: 900 }}>
+                <thead>
                   <tr>
-                    <td colSpan={6} className="muted">
-                      Nenhum atendente encontrado.
-                    </td>
+                    <th>Atendente</th>
+                    <th>CPF</th>
+                    <th>Vendas</th>
+                    <th>Total</th>
+                    <th>Caixa inicial</th>
+                    <th>Dinheiro</th>
+                    <th>Sangrias</th>
+                    <th>Caixa esperado</th>
+                    <th></th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {closing.map((a) => (
+                    <tr key={a.userId}>
+                      <td>{a.name}</td>
+                      <td>{a.cpf ? maskCpf(a.cpf) : '—'}</td>
+                      <td>{a.vendas}</td>
+                      <td>{brl(a.total)}</td>
+                      <td>{brl(a.caixaInicial)}</td>
+                      <td>{brl(a.vendasDinheiro)}</td>
+                      <td style={{ color: 'var(--danger)' }}>-{brl(a.sangrias)}</td>
+                      <td style={{ color: 'var(--accent)', fontWeight: 700 }}>{brl(a.caixaEsperado)}</td>
+                      <td>
+                        <button className="secondary" onClick={() => download(`attendant/${a.userId}`)}>
+                          PDF
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {closing.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="muted">
+                        Nenhum atendente encontrado.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

@@ -7,8 +7,10 @@ import { useOnline } from './src/lib/network';
 import { printer } from './src/lib/printer';
 import { createSaleSender } from './src/lib/sale-sender';
 import { SqliteOutboxStore } from './src/lib/sqlite-outbox';
+import { api } from './src/lib/api';
 import { EventPickerScreen, type EventItem } from './src/screens/EventPickerScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { OpenCashScreen } from './src/screens/OpenCashScreen';
 import { SaleScreen } from './src/screens/SaleScreen';
 import { TabsScreen } from './src/screens/TabsScreen';
 import { colors } from './src/theme';
@@ -21,6 +23,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('sale');
   const [pending, setPending] = useState(0);
   const [ready, setReady] = useState(false);
+  const [cashOpen, setCashOpen] = useState<boolean | null>(null);
 
   const online = useOnline();
   const engineRef = useRef<SyncEngine | null>(null);
@@ -45,6 +48,17 @@ export default function App() {
     return () => {
       cancelled = true;
     };
+  }, [event]);
+
+  // Verifica se o atendente já tem caixa aberto neste evento.
+  useEffect(() => {
+    if (!event) {
+      setCashOpen(null);
+      return;
+    }
+    api<unknown>(`/events/${event.id}/cash-registers/current`)
+      .then((r) => setCashOpen(r != null))
+      .catch(() => setCashOpen(false));
   }, [event]);
 
   // Drena a fila quando há conexão.
@@ -100,6 +114,22 @@ export default function App() {
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
         <StatusBar style="light" />
         <EventPickerScreen onPick={setEvent} />
+      </SafeAreaView>
+    );
+  }
+
+  // Sem caixa aberto do atendente → tela de abertura (ou aguardando verificação).
+  if (cashOpen !== true) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+        <StatusBar style="light" />
+        {cashOpen === false ? (
+          <OpenCashScreen
+            eventId={event.id}
+            eventName={event.name}
+            onOpened={() => setCashOpen(true)}
+          />
+        ) : null}
       </SafeAreaView>
     );
   }

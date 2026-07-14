@@ -64,9 +64,10 @@ describe('Relatórios PDF e fechamento de evento (e2e)', () => {
     operToken = await login('oper@rep.com');
 
     // Movimenta o evento: abre caixa e vende.
+    // O atendente (operador) abre o próprio caixa com valor inicial.
     const reg = await request(app.getHttpServer())
       .post(`/events/${eventId}/cash-registers/open`)
-      .set(auth(adminToken))
+      .set(auth(operToken))
       .send({ openingAmount: '50.00' });
     registerId = reg.body.id;
 
@@ -160,6 +161,10 @@ describe('Relatórios PDF e fechamento de evento (e2e)', () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0].userId).toBe('rep-oper');
+    // caixa inicial 50 + vendas em dinheiro 24 (3 x 8) − sangrias 0 = esperado 74
+    expect(res.body[0].caixaInicial).toBe('50.00');
+    expect(res.body[0].vendasDinheiro).toBe('24.00');
+    expect(res.body[0].caixaEsperado).toBe('74.00');
   });
 
   it('gera PDF de fechamento de um atendente', async () => {

@@ -246,6 +246,24 @@ export class ReportsService {
       WHERE s."eventId" = ${eventId} AND s.status = 'CONCLUIDA' AND s."operatorId" = ${userId}
       GROUP BY p.method`;
 
+    const [cash] = await this.prisma.$queryRaw<
+      { inicial: Prisma.Decimal; sangrias: Prisma.Decimal; suprimentos: Prisma.Decimal }[]
+    >`
+      SELECT
+        COALESCE((SELECT SUM("openingAmount") FROM "CashRegister"
+                  WHERE "eventId" = ${eventId} AND "openedById" = ${userId}), 0) AS inicial,
+        COALESCE((SELECT SUM(m.amount) FROM "CashMovement" m JOIN "CashRegister" r ON r.id = m."cashRegisterId"
+                  WHERE r."eventId" = ${eventId} AND r."openedById" = ${userId} AND m.type = 'SANGRIA'), 0) AS sangrias,
+        COALESCE((SELECT SUM(m.amount) FROM "CashMovement" m JOIN "CashRegister" r ON r.id = m."cashRegisterId"
+                  WHERE r."eventId" = ${eventId} AND r."openedById" = ${userId} AND m.type = 'SUPRIMENTO'), 0) AS suprimentos`;
+
+    const dinheiro = pays.find((p) => p.method === 'DINHEIRO')?.total ?? new Prisma.Decimal(0);
+    const esperado =
+      Number(cash?.inicial ?? 0) +
+      Number(dinheiro) +
+      Number(cash?.suprimentos ?? 0) -
+      Number(cash?.sangrias ?? 0);
+
     return {
       title: 'Fechamento do Atendente',
       subtitle: `${user.name}${user.cpf ? ` · CPF ${user.cpf}` : ''}`,
@@ -262,6 +280,17 @@ export class ReportsService {
           heading: 'Por forma de pagamento',
           columns: ['Forma', 'Total (R$)'],
           rows: pays.map((p) => [p.method, fmt(p.total)]),
+        },
+        {
+          heading: 'Conciliação de caixa',
+          columns: ['Item', 'Valor (R$)'],
+          rows: [
+            ['Caixa inicial', fmt(cash?.inicial)],
+            ['Vendas em dinheiro', fmt(dinheiro)],
+            ['Suprimentos', fmt(cash?.suprimentos)],
+            ['Sangrias', `-${fmt(cash?.sangrias)}`],
+          ],
+          total: ['Caixa esperado', esperado.toFixed(2)],
         },
       ],
     };

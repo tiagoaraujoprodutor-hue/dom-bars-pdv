@@ -108,10 +108,10 @@ describe('Núcleo operacional — ciclo de venda (e2e)', () => {
     expect(res.status).toBe(409);
   });
 
-  it('abre o caixa (supervisor/admin)', async () => {
+  it('o atendente abre o próprio caixa', async () => {
     const res = await request(app.getHttpServer())
       .post(`/events/${eventId}/cash-registers/open`)
-      .set(auth(adminToken))
+      .set(auth(operToken))
       .send({ openingAmount: '100.00' });
     expect(res.status).toBe(201);
     registerId = res.body.id;

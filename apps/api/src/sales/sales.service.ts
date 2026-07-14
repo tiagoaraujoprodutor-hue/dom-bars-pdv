@@ -66,10 +66,10 @@ export class SalesService {
     }
 
     const register = await this.prisma.cashRegister.findFirst({
-      where: { eventId: input.eventId, status: 'ABERTO' },
+      where: { eventId: input.eventId, status: 'ABERTO', openedById: input.operatorId },
     });
     if (!register) {
-      throw new ConflictException('Sem caixa aberto: não é possível vender');
+      throw new ConflictException('Abra o seu caixa antes de vender');
     }
 
     const event = await this.prisma.event.findUniqueOrThrow({ where: { id: input.eventId } });

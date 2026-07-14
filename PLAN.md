@@ -156,6 +156,15 @@ operador"). Admin/supervisor seguem logando por e-mail (senha global no `User`).
 - `User.email`/`User.passwordHash` viraram opcionais; `User.cpf` único. CPF validado com
   dígitos verificadores.
 
+### ADR-18 — Caixa por atendente (escala 10–30 terminais)
+Cada atendente tem o **próprio caixa** no evento (um caixa aberto por atendente por vez):
+abre com valor inicial, vende **no seu caixa** (a venda exige o caixa do próprio operador),
+e sangrias/suprimentos ficam atribuídos ao caixa dele (`CashRegister.openedById`). O
+**fechamento por atendente** concilia: `caixa inicial + vendas em dinheiro + suprimentos −
+sangrias = caixa esperado`, com busca por CPF e PDF individual. Ajuste operacional: abertura
+de caixa liberada ao próprio operador (antes era supervisor/admin); o POS ganhou tela de
+"Abrir caixa". Modelo pensado para 10–30 máquinas, uma por atendente.
+
 ### ADR-16 — Rate limit dimensionado por evento (achado do teste de carga)
 O teste de carga (15 terminais) revelou que o limite default (100 req/min) barrava o pico
 de vendas com 429. Ajustado para **2000 req/min** (configurável por `THROTTLE_LIMIT`), pois

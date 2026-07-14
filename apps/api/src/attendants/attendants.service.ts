@@ -132,42 +132,79 @@ export class AttendantsService {
   }
 
   /**
-   * Fechamento por atendente: quanto cada um vendeu (total + formas de pagamento),
-   * para conferência no fechamento do evento. Opcionalmente filtra por CPF.
+   * Fechamento por atendente: vendas (total + formas de pagamento) e conciliação de
+   * caixa (caixa inicial + vendas em dinheiro + suprimentos − sangrias = esperado).
+   * Cada atendente tem o próprio caixa (registro cujo openedById é ele). Filtra por CPF.
    */
   async closing(eventId: string, cpfFilter?: string) {
-    const sales = await this.prisma.$queryRaw<
-      { operatorId: string; vendas: bigint; total: Prisma.Decimal }[]
-    >`
-      SELECT "operatorId", COUNT(*) AS vendas, COALESCE(SUM(total), 0) AS total
-      FROM "Sale" WHERE "eventId" = ${eventId} AND status = 'CONCLUIDA'
-      GROUP BY "operatorId"`;
+    const [sales, payments, openings, movements] = await Promise.all([
+      this.prisma.$queryRaw<{ operatorId: string; vendas: bigint; total: Prisma.Decimal }[]>`
+        SELECT "operatorId", COUNT(*) AS vendas, COALESCE(SUM(total), 0) AS total
+        FROM "Sale" WHERE "eventId" = ${eventId} AND status = 'CONCLUIDA'
+        GROUP BY "operatorId"`,
+      this.prisma.$queryRaw<{ operatorId: string; method: string; total: Prisma.Decimal }[]>`
+        SELECT s."operatorId" AS "operatorId", p.method AS method, COALESCE(SUM(p.amount), 0) AS total
+        FROM "Payment" p JOIN "Sale" s ON s.id = p."saleId"
+        WHERE s."eventId" = ${eventId} AND s.status = 'CONCLUIDA'
+        GROUP BY s."operatorId", p.method`,
+      this.prisma.$queryRaw<{ userId: string; total: Prisma.Decimal }[]>`
+        SELECT "openedById" AS "userId", COALESCE(SUM("openingAmount"), 0) AS total
+        FROM "CashRegister" WHERE "eventId" = ${eventId} GROUP BY "openedById"`,
+      this.prisma.$queryRaw<{ userId: string; type: string; total: Prisma.Decimal }[]>`
+        SELECT r."openedById" AS "userId", m.type AS type, COALESCE(SUM(m.amount), 0) AS total
+        FROM "CashMovement" m JOIN "CashRegister" r ON r.id = m."cashRegisterId"
+        WHERE r."eventId" = ${eventId} GROUP BY r."openedById", m.type`,
+    ]);
 
-    const payments = await this.prisma.$queryRaw<
-      { operatorId: string; method: string; total: Prisma.Decimal }[]
-    >`
-      SELECT s."operatorId" AS "operatorId", p.method AS method, COALESCE(SUM(p.amount), 0) AS total
-      FROM "Payment" p JOIN "Sale" s ON s.id = p."saleId"
-      WHERE s."eventId" = ${eventId} AND s.status = 'CONCLUIDA'
-      GROUP BY s."operatorId", p.method`;
+    const num = (v: Prisma.Decimal) => Number(v);
+    const openByUser = new Map(openings.map((o) => [o.userId, num(o.total)]));
+    const sangriaByUser = new Map(
+      movements.filter((m) => m.type === 'SANGRIA').map((m) => [m.userId, num(m.total)]),
+    );
+    const suprimentoByUser = new Map(
+      movements.filter((m) => m.type === 'SUPRIMENTO').map((m) => [m.userId, num(m.total)]),
+    );
+    const salesByUser = new Map(sales.map((s) => [s.operatorId, s]));
+    const dinheiroByUser = new Map<string, number>();
+    for (const p of payments) {
+      if (p.method === 'DINHEIRO') dinheiroByUser.set(p.operatorId, num(p.total));
+    }
+
+    const userIds = new Set<string>([
+      ...sales.map((s) => s.operatorId),
+      ...openings.map((o) => o.userId),
+      ...movements.map((m) => m.userId),
+    ]);
 
     const users = await this.prisma.user.findMany({
-      where: { id: { in: sales.map((s) => s.operatorId) } },
+      where: { id: { in: [...userIds] } },
       select: { id: true, name: true, cpf: true },
     });
     const byUser = new Map(users.map((u) => [u.id, u]));
 
-    let result = sales
-      .map((s) => ({
-        userId: s.operatorId,
-        name: byUser.get(s.operatorId)?.name ?? s.operatorId,
-        cpf: byUser.get(s.operatorId)?.cpf ?? null,
-        vendas: Number(s.vendas),
-        total: Number(s.total).toFixed(2),
-        porFormaPagamento: payments
-          .filter((p) => p.operatorId === s.operatorId)
-          .map((p) => ({ method: p.method, total: Number(p.total).toFixed(2) })),
-      }))
+    let result = [...userIds]
+      .map((id) => {
+        const s = salesByUser.get(id);
+        const caixaInicial = openByUser.get(id) ?? 0;
+        const suprimentos = suprimentoByUser.get(id) ?? 0;
+        const sangrias = sangriaByUser.get(id) ?? 0;
+        const vendasDinheiro = dinheiroByUser.get(id) ?? 0;
+        return {
+          userId: id,
+          name: byUser.get(id)?.name ?? id,
+          cpf: byUser.get(id)?.cpf ?? null,
+          vendas: s ? Number(s.vendas) : 0,
+          total: (s ? num(s.total) : 0).toFixed(2),
+          porFormaPagamento: payments
+            .filter((p) => p.operatorId === id)
+            .map((p) => ({ method: p.method, total: num(p.total).toFixed(2) })),
+          caixaInicial: caixaInicial.toFixed(2),
+          suprimentos: suprimentos.toFixed(2),
+          sangrias: sangrias.toFixed(2),
+          vendasDinheiro: vendasDinheiro.toFixed(2),
+          caixaEsperado: (caixaInicial + vendasDinheiro + suprimentos - sangrias).toFixed(2),
+        };
+      })
       .sort((a, b) => Number(b.total) - Number(a.total));
 
     if (cpfFilter) {

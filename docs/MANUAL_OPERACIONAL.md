@@ -19,7 +19,11 @@ Para quem **opera o evento** — linguagem do dia a dia, sem termos técnicos.
 
 ## Antes de vender
 1. Faça **login** no terminal (CPF da atendente) e **escolha o evento**.
-2. **Abra o caixa** informando o valor inicial. *Sem caixa aberto, não vende.*
+2. **Abra o SEU caixa** informando o valor inicial (troco). Cada atendente tem o próprio
+   caixa. *Sem caixa aberto, não vende.*
+
+> Escala: com 10–30 atendentes, cada um usa uma máquina e abre o próprio caixa. O
+> fechamento é individual — dá para conferir e imprimir por atendente (por CPF).
 
 ## Vender (rápido, 2–3 toques)
 1. Toque nos **produtos** para montar o pedido (cada toque soma 1).
@@ -52,9 +56,12 @@ Para quem **opera o evento** — linguagem do dia a dia, sem termos técnicos.
 
 ## Encerrar o evento
 1. Garanta que os terminais estão **online** e com **fila zerada**.
-2. **Feche os caixas**.
-3. **Encerre o evento** → o sistema consolida tudo e gera o **relatório geral em PDF**.
-4. Baixe os relatórios necessários (vendas, pagamentos, perdas, cortesias, etc.).
+2. Em **Relatórios → Fechamento por atendente**: busque por **CPF** (ou liste todos) e
+   confira, por atendente, **caixa inicial + vendas em dinheiro − sangrias = caixa esperado**.
+   Baixe o **PDF individual** de cada um para a conferência do dinheiro.
+3. **Feche os caixas**.
+4. **Encerre o evento** → o sistema consolida tudo e gera o **relatório geral em PDF**.
+5. Baixe os demais relatórios necessários (vendas, pagamentos, perdas, cortesias, etc.).
 
 ## Dúvidas comuns
 - *"Travou a internet"* → continue vendendo; sincroniza depois.

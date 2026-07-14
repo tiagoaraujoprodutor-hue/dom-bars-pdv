@@ -16,17 +16,17 @@ export class CashService {
     private readonly realtime: RealtimeService,
   ) {}
 
-  /** Caixa aberto do evento (regra: um caixa aberto por evento por vez). */
-  findOpen(eventId: string) {
+  /** Caixa aberto de UM atendente no evento (um caixa aberto por atendente por vez). */
+  findOpenForOperator(eventId: string, userId: string) {
     return this.prisma.cashRegister.findFirst({
-      where: { eventId, status: CashRegisterStatus.ABERTO },
+      where: { eventId, openedById: userId, status: CashRegisterStatus.ABERTO },
     });
   }
 
   async open(eventId: string, userId: string, companyId: string, dto: OpenCashDto) {
-    const existing = await this.findOpen(eventId);
+    const existing = await this.findOpenForOperator(eventId, userId);
     if (existing) {
-      throw new ConflictException('Já existe um caixa aberto para este evento');
+      throw new ConflictException('Você já tem um caixa aberto neste evento');
     }
     const register = await this.prisma.cashRegister.create({
       data: { eventId, openedById: userId, openingAmount: dec(dto.openingAmount) },

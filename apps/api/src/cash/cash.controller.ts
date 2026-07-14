@@ -26,13 +26,14 @@ import {
 export class CashController {
   constructor(private readonly cash: CashService) {}
 
+  /** Caixa aberto do próprio usuário (cada atendente tem o seu). */
   @Get('current')
-  current(@EventScopeParam() scope: EventScope) {
-    return this.cash.findOpen(scope.eventId);
+  current(@EventScopeParam() scope: EventScope, @CurrentUser() user: AuthUser) {
+    return this.cash.findOpenForOperator(scope.eventId, user.userId);
   }
 
+  /** Cada atendente abre o seu próprio caixa (valor inicial). */
   @Post('open')
-  @Roles(Role.SUPERVISOR, Role.ADMINISTRADOR)
   open(
     @EventScopeParam() scope: EventScope,
     @CurrentUser() user: AuthUser,
