@@ -12,9 +12,11 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { CashService } from './cash.service';
 import {
   CashMovementDto,
+  CloseAllDto,
   CloseCashDto,
   OpenCashDto,
   cashMovementSchema,
+  closeAllSchema,
   closeCashSchema,
   openCashSchema,
 } from './dto/cash.dto';
@@ -48,8 +50,19 @@ export class CashController {
     return this.cash.summary(scope.eventId, id);
   }
 
+  /** Fecha todos os caixas abertos do evento (fim de evento). Admin + senha admin. */
+  @Post('close-all')
+  @Roles(Role.ADMINISTRADOR)
+  closeAll(
+    @EventScopeParam() scope: EventScope,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(closeAllSchema)) dto: CloseAllDto,
+  ) {
+    return this.cash.closeAll(scope.eventId, user.userId, user.companyId, dto.adminPassword);
+  }
+
   @Post(':id/close')
-  @Roles(Role.SUPERVISOR, Role.ADMINISTRADOR)
+  @Roles(Role.ADMINISTRADOR)
   close(
     @EventScopeParam() scope: EventScope,
     @CurrentUser() user: AuthUser,

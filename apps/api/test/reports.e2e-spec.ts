@@ -177,6 +177,29 @@ describe('Relatórios PDF e fechamento de evento (e2e)', () => {
     expect((res.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
   });
 
+  it('fechar caixa: operador não pode (RBAC) e exige senha admin', async () => {
+    const rbac = await request(app.getHttpServer())
+      .post(`/events/${eventId}/cash-registers/${registerId}/close`)
+      .set(auth(operToken))
+      .send({ closingAmount: '0', adminPassword: ADMIN_PASSWORD });
+    expect(rbac.status).toBe(403);
+
+    const bad = await request(app.getHttpServer())
+      .post(`/events/${eventId}/cash-registers/${registerId}/close`)
+      .set(auth(adminToken))
+      .send({ closingAmount: '0', adminPassword: 'errada' });
+    expect(bad.status).toBe(403);
+  });
+
+  it('admin fecha todos os caixas com senha admin', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/events/${eventId}/cash-registers/close-all`)
+      .set(auth(adminToken))
+      .send({ adminPassword: ADMIN_PASSWORD });
+    expect(res.status).toBe(201);
+    expect(res.body.closed).toBeGreaterThanOrEqual(1);
+  });
+
   it('fecha o evento, consolida e audita', async () => {
     const res = await request(app.getHttpServer())
       .post(`/events/${eventId}/close`)

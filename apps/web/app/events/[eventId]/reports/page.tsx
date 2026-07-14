@@ -65,6 +65,20 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
     }
   }
 
+  async function closeAllCash() {
+    setError('');
+    setCloseResult('');
+    try {
+      const r = await api<{ closed: number }>(`/events/${eventId}/cash-registers/close-all`, {
+        method: 'POST',
+        body: { adminPassword },
+      });
+      setCloseResult(`${r.closed} caixa(s) fechado(s).`);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
   async function closeEvent(e: FormEvent) {
     e.preventDefault();
     setError('');
@@ -189,6 +203,9 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
                 required
               />
             </div>
+            <button type="button" className="secondary" onClick={closeAllCash}>
+              Fechar todos os caixas
+            </button>
             <button type="submit">Encerrar evento</button>
             <button type="button" className="secondary" onClick={() => download('general')}>
               Ver relatório geral

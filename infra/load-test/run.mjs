@@ -1,25 +1,38 @@
 #!/usr/bin/env node
-// Teste de carga: simula N terminais Smart 2 vendendo em paralelo no mesmo evento.
-// Valida (1) throughput sob concorrência e (2) idempotência: reenvio do mesmo
-// clientId não duplica a venda. Requer a API no ar e o seed aplicado.
+// Teste de carga realista: N atendentes distintos, cada um com o PRÓPRIO caixa,
+// vendendo em paralelo no mesmo evento. Valida throughput e idempotência
+// (reenvio do mesmo clientId não duplica). Requer API no ar + seed aplicado.
 //
 // Uso:
-//   API_URL=http://localhost:3000 EVENT_ID=demo-event TERMINALS=15 SALES_PER_TERMINAL=20 \
+//   API_URL=http://localhost:3000 EVENT_ID=demo-event TERMINALS=30 SALES_PER_TERMINAL=20 \
 //   node infra/load-test/run.mjs
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3000';
 const EVENT_ID = process.env.EVENT_ID ?? 'demo-event';
-const TERMINALS = Number(process.env.TERMINALS ?? 15);
+const TERMINALS = Number(process.env.TERMINALS ?? 30);
 const SALES_PER_TERMINAL = Number(process.env.SALES_PER_TERMINAL ?? 20);
-const EMAIL = process.env.EMAIL ?? 'admin@demo.com';
-const PASSWORD = process.env.PASSWORD ?? 'senha123';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin123';
+const ADMIN_EMAIL = process.env.EMAIL ?? 'admin@demo.com';
+const ADMIN_PASSWORD_LOGIN = process.env.PASSWORD ?? 'senha123';
 
 function uuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   });
+}
+
+// Gera um CPF válido (com dígitos verificadores).
+function genCpf() {
+  const n = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
+  const dv = (arr) => {
+    let s = 0;
+    for (let i = 0; i < arr.length; i++) s += arr[i] * (arr.length + 1 - i);
+    const r = (s * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  const d1 = dv(n);
+  const d2 = dv([...n, d1]);
+  return [...n, d1, d2].join('');
 }
 
 async function api(path, { method = 'GET', body, token } = {}) {
@@ -37,53 +50,62 @@ async function api(path, { method = 'GET', body, token } = {}) {
   return data;
 }
 
-async function ensureOpenCash(token, productId) {
-  const current = await api(`/events/${EVENT_ID}/cash-registers/current`, { token });
-  if (!current) {
-    await api(`/events/${EVENT_ID}/cash-registers/open`, {
-      method: 'POST',
-      token,
-      body: { openingAmount: '0' },
-    });
-  }
-  return productId;
-}
-
 async function main() {
-  console.log(`== Load test: ${TERMINALS} terminais x ${SALES_PER_TERMINAL} vendas ==`);
-  const { accessToken: token } = await api('/auth/login', {
+  console.log(`== Load test: ${TERMINALS} atendentes x ${SALES_PER_TERMINAL} vendas (caixa por atendente) ==`);
+  const { accessToken: adminToken } = await api('/auth/login', {
     method: 'POST',
-    body: { email: EMAIL, password: PASSWORD },
+    body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD_LOGIN },
   });
 
-  const products = await api(`/events/${EVENT_ID}/products`, { token });
+  const products = await api(`/events/${EVENT_ID}/products`, { token: adminToken });
   if (!products.length) throw new Error('Sem produtos no evento (rode o seed).');
   const product = products[0];
-  await ensureOpenCash(token, product.id);
 
-  const before = await api(`/events/${EVENT_ID}/dashboard`, { token });
+  // Cria N atendentes e prepara cada terminal (login por CPF + abre o próprio caixa).
+  console.log('Preparando atendentes e caixas...');
+  const terminals = await Promise.all(
+    Array.from({ length: TERMINALS }, async (_, i) => {
+      const cpf = genCpf();
+      await api(`/events/${EVENT_ID}/attendants`, {
+        method: 'POST',
+        token: adminToken,
+        body: { name: `Atendente ${i}`, cpf, password: 'atende1', role: 'OPERADOR' },
+      });
+      const { accessToken } = await api('/auth/login', {
+        method: 'POST',
+        body: { cpf, password: 'atende1' },
+      });
+      await api(`/events/${EVENT_ID}/cash-registers/open`, {
+        method: 'POST',
+        token: accessToken,
+        body: { openingAmount: '50' },
+      });
+      return { token: accessToken, machineId: `terminal-${i}` };
+    }),
+  );
+
+  const before = await api(`/events/${EVENT_ID}/dashboard`, { token: adminToken });
 
   let ok = 0;
   let fail = 0;
-  let duplicateAttempts = 0;
+  let dup = 0;
   const start = Date.now();
 
-  const terminal = async (t) => {
+  const sell = async (t) => {
     for (let i = 0; i < SALES_PER_TERMINAL; i++) {
       const clientId = uuid();
       const body = {
         clientId,
-        machineId: `terminal-${t}`,
+        machineId: t.machineId,
         items: [{ productId: product.id, quantity: 1 }],
         payments: [{ method: 'DINHEIRO', amount: Number(product.price).toFixed(2) }],
       };
       try {
-        await api(`/events/${EVENT_ID}/sales`, { method: 'POST', token, body });
+        await api(`/events/${EVENT_ID}/sales`, { method: 'POST', token: t.token, body });
         ok++;
-        // 1 em 5: reenvia o MESMO clientId para provar idempotência.
         if (i % 5 === 0) {
-          duplicateAttempts++;
-          await api(`/events/${EVENT_ID}/sales`, { method: 'POST', token, body });
+          dup++;
+          await api(`/events/${EVENT_ID}/sales`, { method: 'POST', token: t.token, body });
         }
       } catch (err) {
         fail++;
@@ -92,26 +114,27 @@ async function main() {
     }
   };
 
-  await Promise.all(Array.from({ length: TERMINALS }, (_, t) => terminal(t)));
+  await Promise.all(terminals.map((t) => sell(t)));
 
   const ms = Date.now() - start;
-  const after = await api(`/events/${EVENT_ID}/dashboard`, { token });
+  const after = await api(`/events/${EVENT_ID}/dashboard`, { token: adminToken });
   const created = after.totalVendas - before.totalVendas;
   const expected = TERMINALS * SALES_PER_TERMINAL;
 
   console.log(`\nResultados:`);
-  console.log(`  vendas enviadas (únicas):   ${ok}`);
-  console.log(`  reenvios idempotentes:      ${duplicateAttempts}`);
+  console.log(`  atendentes/terminais:       ${TERMINALS}`);
+  console.log(`  vendas únicas enviadas:     ${ok}`);
+  console.log(`  reenvios idempotentes:      ${dup}`);
   console.log(`  falhas:                     ${fail}`);
   console.log(`  vendas criadas no servidor: ${created} (esperado ${expected})`);
-  console.log(`  duração:                    ${ms} ms  (~${Math.round((ok / ms) * 1000)} vendas/s)`);
-  console.log(`  faturamento antes/depois:   ${before.faturamentoBruto} -> ${after.faturamentoBruto}`);
+  console.log(`  duração das vendas:         ${ms} ms  (~${Math.round((ok / ms) * 1000)} vendas/s)`);
+  console.log(`  faturamento:                ${before.faturamentoBruto} -> ${after.faturamentoBruto}`);
 
   if (created !== expected) {
-    console.error(`\n❌ DUPLICAÇÃO/PERDA detectada: criadas ${created}, esperado ${expected}`);
+    console.error(`\n❌ DUPLICAÇÃO/PERDA: criadas ${created}, esperado ${expected}`);
     process.exit(1);
   }
-  console.log(`\n✅ Idempotência OK: ${duplicateAttempts} reenvios não geraram duplicatas.`);
+  console.log(`\n✅ ${TERMINALS} caixas simultâneos, ${dup} reenvios, zero duplicatas.`);
 }
 
 main().catch((e) => {

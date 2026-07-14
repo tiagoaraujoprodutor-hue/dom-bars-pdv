@@ -44,6 +44,8 @@ export class CashService {
   }
 
   async close(eventId: string, registerId: string, userId: string, companyId: string, dto: CloseCashDto) {
+    // Fechamento de caixa é ação crítica: só admin, com senha administrativa.
+    await this.adminPassword.assertValid(eventId, dto.adminPassword);
     const register = await this.requireRegister(eventId, registerId);
     if (register.status === CashRegisterStatus.FECHADO) {
       throw new ConflictException('Caixa já está fechado');
@@ -66,6 +68,39 @@ export class CashService {
       amount: closed.closingAmount?.toNumber() ?? null,
     });
     return this.summary(eventId, register.id);
+  }
+
+  /** Fecha TODOS os caixas abertos do evento (fim de evento). Só admin + senha admin. */
+  async closeAll(eventId: string, userId: string, companyId: string, adminPassword: string) {
+    await this.adminPassword.assertValid(eventId, adminPassword);
+    const open = await this.prisma.cashRegister.findMany({
+      where: { eventId, status: CashRegisterStatus.ABERTO },
+    });
+
+    let closed = 0;
+    for (const register of open) {
+      const summary = await this.summary(eventId, register.id);
+      await this.prisma.cashRegister.update({
+        where: { id: register.id },
+        data: {
+          status: CashRegisterStatus.FECHADO,
+          closingAmount: summary.expectedInDrawer,
+          closedAt: new Date(),
+        },
+      });
+      await this.audit.record({
+        action: 'CASH_CLOSE',
+        userId,
+        companyId,
+        eventId,
+        entity: 'CashRegister',
+        entityId: register.id,
+        amount: summary.expectedInDrawer.toNumber(),
+        metadata: { via: 'close-all' },
+      });
+      closed += 1;
+    }
+    return { closed };
   }
 
   async movement(

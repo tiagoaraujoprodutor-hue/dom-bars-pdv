@@ -59,7 +59,8 @@ Para quem **opera o evento** — linguagem do dia a dia, sem termos técnicos.
 2. Em **Relatórios → Fechamento por atendente**: busque por **CPF** (ou liste todos) e
    confira, por atendente, **caixa inicial + vendas em dinheiro − sangrias = caixa esperado**.
    Baixe o **PDF individual** de cada um para a conferência do dinheiro.
-3. **Feche os caixas**.
+3. **Feche os caixas** — só o **Administrador**, com a **senha administrativa**. Use o botão
+   **"Fechar todos os caixas"** (fecha todos de uma vez) ou feche individualmente.
 4. **Encerre o evento** → o sistema consolida tudo e gera o **relatório geral em PDF**.
 5. Baixe os demais relatórios necessários (vendas, pagamentos, perdas, cortesias, etc.).
 
