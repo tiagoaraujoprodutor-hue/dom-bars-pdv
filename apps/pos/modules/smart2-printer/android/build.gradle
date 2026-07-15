@@ -1,20 +1,20 @@
-// Módulo local do Expo: o `expo-module-gradle-plugin` configura o android library,
-// o Kotlin, o KSP e — o essencial — coloca o `expo-modules-core` no classpath
-// (era isso que faltava: as classes expo.modules.* não eram encontradas no build).
+// Módulo local do Expo (impressora Sunmi do Smart POS P2).
+// O expo-module-gradle-plugin configura android library, Kotlin, KSP e coloca
+// o expo-modules-core no classpath (compileOnly).
 apply plugin: 'expo-module-gradle-plugin'
 
 group = 'com.dombars.smart2printer'
 version = '0.1.0'
 
+expoModule {
+  // Módulo local do app — não é publicado como artefato Maven. Desligar a
+  // publicação evita o caminho do plugin que chama components.getByName("release")
+  // e falha ao configurar :expo com "SoftwareComponent with name 'release' not found".
+  canBePublished = false
+}
+
 android {
   namespace = "com.dombars.smart2printer"
-
-  // O autolinking do Expo publica cada módulo pelo componente "release".
-  // Sem declarar a variante, o Gradle falha com
-  // "SoftwareComponent with name 'release' not found" ao configurar :expo.
-  publishing {
-    singleVariant("release")
-  }
 }
 
 dependencies {
