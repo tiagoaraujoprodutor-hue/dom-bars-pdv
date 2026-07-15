@@ -13,7 +13,10 @@
     },
     "plugins": [
       "expo-sqlite",
-      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
+      [
+        "expo-build-properties",
+        { "android": { "usesCleartextTraffic": true, "useHermesV1": false } }
+      ]
     ],
     "extra": {
       "eas": {

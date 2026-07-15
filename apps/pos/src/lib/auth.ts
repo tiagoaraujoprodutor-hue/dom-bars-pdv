@@ -30,10 +30,11 @@ export async function login(identifier: string, password: string, machineId: str
     ? { email: identifier.trim(), password, machineId }
     : { cpf: identifier.replace(/\D/g, ''), password, machineId };
   const res = await api<LoginResponse>('/auth/login', { method: 'POST', body });
-  await AsyncStorage.multiSet([
-    ['accessToken', res.accessToken],
-    ['refreshToken', res.refreshToken],
-    ['user', JSON.stringify(res.user)],
+  // AsyncStorage 3.x não tem mais multiSet — usa setItem individual.
+  await Promise.all([
+    AsyncStorage.setItem('accessToken', res.accessToken),
+    AsyncStorage.setItem('refreshToken', res.refreshToken),
+    AsyncStorage.setItem('user', JSON.stringify(res.user)),
   ]);
   return res.user;
 }
@@ -44,5 +45,10 @@ export async function loadUser(): Promise<AuthUser | null> {
 }
 
 export async function logout(): Promise<void> {
-  await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'user']);
+  // AsyncStorage 3.x não tem mais multiRemove — usa removeItem individual.
+  await Promise.all([
+    AsyncStorage.removeItem('accessToken'),
+    AsyncStorage.removeItem('refreshToken'),
+    AsyncStorage.removeItem('user'),
+  ]);
 }
