@@ -1,4 +1,4 @@
-import { uuid, type PaymentMethod, type SalePayload } from '@dom-bars/shared';
+import { uuid, type PaymentMethod, type ReceiptLine, type SalePayload } from '@dom-bars/shared';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { api } from '../lib/api';
@@ -27,7 +27,10 @@ export function SaleScreen({
   eventId: string;
   online: boolean;
   pending: number;
-  onCheckout: (payload: SalePayload) => Promise<{ offline: boolean }>;
+  onCheckout: (
+    payload: SalePayload,
+    receiptLines: ReceiptLine[],
+  ) => Promise<{ offline: boolean }>;
 }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<Record<string, CartLine>>({});
@@ -66,8 +69,15 @@ export function SaleScreen({
       items: Object.values(cart).map((l) => ({ productId: l.product.id, quantity: l.qty })),
       payments: [{ method, amount: total.toFixed(2) }],
     };
+    // Linhas do cupom (nome/qtd/preço) — o comprovante lista os itens para
+    // retirada no bar. Montadas aqui porque o carrinho tem nome e preço.
+    const receiptLines: ReceiptLine[] = Object.values(cart).map((l) => ({
+      name: l.product.name,
+      quantity: l.qty,
+      unitPrice: l.product.price,
+    }));
     try {
-      const res = await onCheckout(payload);
+      const res = await onCheckout(payload, receiptLines);
       clear();
       Alert.alert(
         res.offline ? 'Venda salva (offline)' : 'Venda concluída',

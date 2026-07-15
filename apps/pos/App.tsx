@@ -1,4 +1,10 @@
-import { SyncEngine, type SalePayload } from '@dom-bars/shared';
+import {
+  SyncEngine,
+  buildProductionTicket,
+  buildReceipt,
+  type ReceiptLine,
+  type SalePayload,
+} from '@dom-bars/shared';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
@@ -72,7 +78,7 @@ export default function App() {
   }, [online, ready]);
 
   const onCheckout = useCallback(
-    async (payload: SalePayload): Promise<{ offline: boolean }> => {
+    async (payload: SalePayload, receiptLines: ReceiptLine[]): Promise<{ offline: boolean }> => {
       const engine = engineRef.current;
       if (!engine) throw new Error('Sincronização não iniciada');
 
@@ -85,15 +91,25 @@ export default function App() {
       const remaining = await engine.pendingCount();
       setPending(remaining);
 
-      // 3) Imprime comprovante (best-effort, não bloqueia a venda).
+      // 3) Imprime (best-effort, não bloqueia a venda):
+      //    a) Comprovante com os itens (o cliente retira os produtos no bar).
+      //    b) Ficha do bar (só o que preparar/entregar, sem valores).
       const total = payload.payments.reduce((a, p) => a + Number(p.amount), 0).toFixed(2);
+      const eventName = event?.name ?? 'Evento';
       await printer
-        .print({
-          kind: 'receipt',
-          title: 'Comprovante',
-          lines: [event?.name ?? 'Evento', `TOTAL: R$ ${total}`, `Venda: ${payload.clientId}`],
-        })
+        .print(
+          buildReceipt({
+            eventName,
+            saleId: payload.clientId,
+            items: receiptLines,
+            subtotal: total,
+            serviceFee: '0.00',
+            total,
+            payments: payload.payments,
+          }),
+        )
         .catch(() => undefined);
+      await printer.print(buildProductionTicket(eventName, receiptLines)).catch(() => undefined);
 
       return { offline: !online };
     },
