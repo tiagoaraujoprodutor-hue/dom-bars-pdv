@@ -8,6 +8,13 @@ version = '0.1.0'
 
 android {
   namespace = "com.dombars.smart2printer"
+
+  // O autolinking do Expo publica cada módulo pelo componente "release".
+  // Sem declarar a variante, o Gradle falha com
+  // "SoftwareComponent with name 'release' not found" ao configurar :expo.
+  publishing {
+    singleVariant("release")
+  }
 }
 
 dependencies {

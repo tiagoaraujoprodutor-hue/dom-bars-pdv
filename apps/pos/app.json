@@ -9,10 +9,12 @@
     "userInterfaceStyle": "dark",
     "platforms": ["android", "ios"],
     "android": {
-      "package": "com.dombars.pos",
-      "usesCleartextTraffic": true
+      "package": "com.dombars.pos"
     },
-    "plugins": ["expo-sqlite"],
+    "plugins": [
+      "expo-sqlite",
+      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
+    ],
     "extra": {
       "eas": {
         "projectId": "8ad343fe-7b5a-45d6-9147-c4d8da014cf5"

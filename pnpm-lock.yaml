@@ -159,6 +159,9 @@ importers:
       expo:
         specifier: ~56.0.12
         version: 56.0.12(@babel/core@7.29.7)(@expo/dom-webview@56.0.5)(react-dom@19.2.7(react@19.2.7))(react-native@0.82.1(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
+      expo-build-properties:
+        specifier: ^56.0.23
+        version: 56.0.23(expo@56.0.12)
       expo-network:
         specifier: ~56.0.5
         version: 56.0.5(expo@56.0.12)(react@19.2.7)
@@ -874,6 +877,9 @@ packages:
 
   '@expo/schema-utils@56.0.1':
     resolution: {integrity: sha512-CZ/+mYbQmWeOnkCGlWy9K+lFxbJSMFY7+TqBZcKzBSTU5Q7IGRvn/sOG3TdNjIdLPmbA8xe7R/c3UUQ28R9i9w==}
+
+  '@expo/schema-utils@56.0.2':
+    resolution: {integrity: sha512-WcOH1E6rwxRqNwBzPOVhd5GBbMlS04+5n+ZMdhdwKOg/Kt3suV+F8F6An+z8mUJ8eSuMM3HD9Sj09t7vc/Xjkw==}
 
   '@expo/sdk-runtime-versions@1.0.0':
     resolution: {integrity: sha512-Doz2bfiPndXYFPMRwPyGa1k5QaKDVpY806UJj570epIiMzWaYyCtobasyfC++qfIXVb5Ocy7r3tP9d62hAQ7IQ==}
@@ -2812,6 +2818,11 @@ packages:
       expo: '*'
       react: '*'
       react-native: '*'
+
+  expo-build-properties@56.0.23:
+    resolution: {integrity: sha512-xb9QX+x/AsDw8wVdox3jNpf8eVUc8PYq3lycF2OOlmHkmn+ecmxmtdCpB3ZDLjtdem8XrgycgLIba7WTdc7o7w==}
+    peerDependencies:
+      expo: '*'
 
   expo-constants@56.0.18:
     resolution: {integrity: sha512-8AMtbDGl/WVPnWlmbpGmvcdnNCy9E4PFnwdVwj600vljkMDPSxcAcjw8GVXEPk3PpZ+ngTqsrkltWyj0UKYAxw==}
@@ -6074,6 +6085,8 @@ snapshots:
 
   '@expo/schema-utils@56.0.1': {}
 
+  '@expo/schema-utils@56.0.2': {}
+
   '@expo/sdk-runtime-versions@1.0.0': {}
 
   '@expo/spawn-async@1.8.0':
@@ -8218,6 +8231,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
       - typescript
+
+  expo-build-properties@56.0.23(expo@56.0.12):
+    dependencies:
+      '@expo/schema-utils': 56.0.2
+      expo: 56.0.12(@babel/core@7.29.7)(@expo/dom-webview@56.0.5)(react-dom@19.2.7(react@19.2.7))(react-native@0.82.1(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
+      resolve-from: 5.0.0
+      semver: 7.8.4
 
   expo-constants@56.0.18(expo@56.0.12)(react-native@0.82.1(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7)):
     dependencies:
