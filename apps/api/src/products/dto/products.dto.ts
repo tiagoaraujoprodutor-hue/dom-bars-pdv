@@ -8,6 +8,8 @@ export type CreateCategoryDto = z.infer<typeof createCategorySchema>;
 export const createProductSchema = z.object({
   name: z.string().min(1),
   price: money,
+  /** Valor de compra (custo) — usado no cálculo de lucro no fechamento. */
+  costPrice: money.default(0),
   categoryId: z.string().optional(),
   stock: z.number().int().min(0).default(0),
   minStock: z.number().int().min(0).default(0),
@@ -17,6 +19,7 @@ export type CreateProductDto = z.infer<typeof createProductSchema>;
 export const updateProductSchema = z.object({
   name: z.string().min(1).optional(),
   price: money.optional(),
+  costPrice: money.optional(),
   categoryId: z.string().nullable().optional(),
   minStock: z.number().int().min(0).optional(),
   active: z.boolean().optional(),

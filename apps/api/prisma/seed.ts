@@ -83,6 +83,7 @@ async function main(): Promise<void> {
       categoryId: category.id,
       name: 'Caipirinha',
       price: '18.00',
+      costPrice: '6.00',
       stock: 100,
       minStock: 10,
     },

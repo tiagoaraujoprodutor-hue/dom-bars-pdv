@@ -57,7 +57,7 @@ describe('Relatórios PDF e fechamento de evento (e2e)', () => {
     // Operador com CPF, para testar a busca de fechamento por CPF.
     await prisma.user.update({ where: { id: 'rep-oper' }, data: { cpf: '11144477735' } });
     await prisma.product.create({
-      data: { id: PROD, eventId, name: 'Refri', price: '8.00', stock: 100 },
+      data: { id: PROD, eventId, name: 'Refri', price: '8.00', costPrice: '5.00', stock: 100 },
     });
 
     adminToken = await login('admin@rep.com');
@@ -95,6 +95,7 @@ describe('Relatórios PDF e fechamento de evento (e2e)', () => {
 
   const reportPaths = [
     'general',
+    'profit-by-product',
     'sales-by-operator',
     'sales-by-machine',
     'sales-by-product',
@@ -126,6 +127,18 @@ describe('Relatórios PDF e fechamento de evento (e2e)', () => {
       .parse(binaryParser);
     expect(res.status).toBe(200);
     expect((res.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  it('resumo financeiro apura lucro (faturamento − custo)', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/events/${eventId}/reports/financial-summary`)
+      .set(auth(adminToken));
+    expect(res.status).toBe(200);
+    // 3 unidades: receita 3×8=24, custo 3×5=15, lucro 9, margem 37.5%
+    expect(res.body.faturamento).toBe('24.00');
+    expect(res.body.custo).toBe('15.00');
+    expect(res.body.lucro).toBe('9.00');
+    expect(res.body.margem).toBe('37.5');
   });
 
   it('operador não acessa relatórios (RBAC)', async () => {

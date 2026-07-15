@@ -34,6 +34,7 @@ export class ProductsService {
         eventId,
         name: dto.name,
         price: dec(dto.price),
+        costPrice: dec(dto.costPrice),
         categoryId: dto.categoryId,
         stock: dto.stock,
         minStock: dto.minStock,
@@ -65,6 +66,7 @@ export class ProductsService {
       data: {
         name: dto.name,
         price: dto.price !== undefined ? dec(dto.price) : undefined,
+        costPrice: dto.costPrice !== undefined ? dec(dto.costPrice) : undefined,
         categoryId: dto.categoryId,
         minStock: dto.minStock,
         active: dto.active,

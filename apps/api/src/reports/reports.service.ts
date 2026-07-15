@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CashService } from '../cash/cash.service';
+import { dec } from '../common/money';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportSpec, renderPdf } from './pdf.util';
@@ -296,12 +297,77 @@ export class ReportsService {
     };
   }
 
+  /**
+   * Apuração financeira do evento: faturamento, custo dos produtos vendidos
+   * (soma de quantidade × custo de compra nas vendas concluídas) e lucro bruto.
+   */
+  async financialSummary(eventId: string): Promise<{
+    faturamento: string;
+    custo: string;
+    lucro: string;
+    margem: string;
+  }> {
+    const snap = await this.dashboard.snapshot(eventId);
+    const [row] = await this.prisma.$queryRaw<{ custo: Prisma.Decimal | null }[]>`
+      SELECT COALESCE(SUM(si.quantity * p."costPrice"), 0) AS custo
+      FROM "SaleItem" si
+      JOIN "Sale" s ON s.id = si."saleId"
+      JOIN "Product" p ON p.id = si."productId"
+      WHERE s."eventId" = ${eventId} AND s.status = 'CONCLUIDA'`;
+
+    const faturamento = dec(snap.faturamentoBruto);
+    const custo = dec(row?.custo ?? 0);
+    const lucro = faturamento.minus(custo);
+    const margem = faturamento.gt(0) ? lucro.div(faturamento).times(100) : dec(0);
+
+    return {
+      faturamento: fmt(faturamento),
+      custo: fmt(custo),
+      lucro: fmt(lucro),
+      margem: margem.toFixed(1),
+    };
+  }
+
+  /** Lucratividade por produto: receita, custo, lucro e margem de cada item. */
+  async profitByProduct(eventId: string): Promise<ReportSpec> {
+    const rows = await this.prisma.$queryRaw<
+      { name: string; qty: bigint; revenue: Prisma.Decimal; cost: Prisma.Decimal }[]
+    >`
+      SELECT p.name AS name,
+             SUM(si.quantity) AS qty,
+             SUM(si.quantity * si."unitPrice") AS revenue,
+             SUM(si.quantity * p."costPrice") AS cost
+      FROM "SaleItem" si
+      JOIN "Sale" s ON s.id = si."saleId"
+      JOIN "Product" p ON p.id = si."productId"
+      WHERE s."eventId" = ${eventId} AND s.status = 'CONCLUIDA'
+      GROUP BY p.name ORDER BY (SUM(si.quantity * si."unitPrice") - SUM(si.quantity * p."costPrice")) DESC`;
+
+    return {
+      title: 'Lucratividade por Produto',
+      sections: [
+        {
+          heading: 'Produtos',
+          columns: ['Produto', 'Qtd', 'Receita (R$)', 'Custo (R$)', 'Lucro (R$)', 'Margem (%)'],
+          rows: rows.map((r) => {
+            const revenue = dec(r.revenue);
+            const cost = dec(r.cost);
+            const lucro = revenue.minus(cost);
+            const margem = revenue.gt(0) ? lucro.div(revenue).times(100) : dec(0);
+            return [r.name, Number(r.qty), fmt(revenue), fmt(cost), fmt(lucro), margem.toFixed(1)];
+          }),
+        },
+      ],
+    };
+  }
+
   /** Relatório geral — consolidação do evento (usado no fechamento). */
   async general(eventId: string): Promise<ReportSpec> {
-    const [name, snap, perdas] = await Promise.all([
+    const [name, snap, perdas, fin] = await Promise.all([
       this.eventName(eventId),
       this.dashboard.snapshot(eventId),
       this.prisma.lossRecord.count({ where: { eventId } }),
+      this.financialSummary(eventId),
     ]);
 
     return {
@@ -313,6 +379,9 @@ export class ReportsService {
           columns: ['Indicador', 'Valor'],
           rows: [
             ['Faturamento bruto (R$)', snap.faturamentoBruto],
+            ['Custo dos produtos vendidos (R$)', fin.custo],
+            ['Lucro bruto (R$)', fin.lucro],
+            ['Margem de lucro (%)', fin.margem],
             ['Total de vendas', snap.totalVendas],
             ['Ticket médio (R$)', snap.ticketMedio],
             ['Comandas abertas', snap.comandas.abertas],

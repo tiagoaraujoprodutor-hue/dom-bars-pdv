@@ -92,9 +92,21 @@ export class ReportsController {
     return this.pdf('fechamento-atendente', this.reports.attendantClosing(scope.eventId, userId));
   }
 
+  @Get('profit-by-product')
+  @Header('Content-Type', 'application/pdf')
+  profitByProduct(@EventScopeParam() scope: EventScope) {
+    return this.pdf('lucro-por-produto', this.reports.profitByProduct(scope.eventId));
+  }
+
   @Get('general')
   @Header('Content-Type', 'application/pdf')
   general(@EventScopeParam() scope: EventScope) {
     return this.pdf('relatorio-geral', this.reports.general(scope.eventId));
+  }
+
+  /** Resumo financeiro em JSON (faturamento, custo, lucro, margem) para exibição no painel. */
+  @Get('financial-summary')
+  financialSummary(@EventScopeParam() scope: EventScope) {
+    return this.reports.financialSummary(scope.eventId);
   }
 }

@@ -8,6 +8,7 @@ interface Product {
   id: string;
   name: string;
   price: string;
+  costPrice: string;
   stock: number;
   minStock: number;
   active: boolean;
@@ -18,6 +19,7 @@ export default function ProductsPage({ params }: { params: Promise<{ eventId: st
   const [products, setProducts] = useState<Product[]>([]);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
+  const [cost, setCost] = useState('');
   const [stock, setStock] = useState('0');
   const [error, setError] = useState('');
 
@@ -35,10 +37,11 @@ export default function ProductsPage({ params }: { params: Promise<{ eventId: st
     try {
       await api(`/events/${eventId}/products`, {
         method: 'POST',
-        body: { name, price, stock: Number(stock) },
+        body: { name, price, costPrice: cost || '0', stock: Number(stock) },
       });
       setName('');
       setPrice('');
+      setCost('');
       setStock('0');
       reload();
     } catch (err) {
@@ -57,8 +60,12 @@ export default function ProductsPage({ params }: { params: Promise<{ eventId: st
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div style={{ flex: 1 }}>
-            <label>Preço</label>
+            <label>Preço venda</label>
             <input value={price} onChange={(e) => setPrice(e.target.value)} required />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Custo compra</label>
+            <input value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0.00" />
           </div>
           <div style={{ flex: 1 }}>
             <label>Estoque</label>
@@ -74,23 +81,32 @@ export default function ProductsPage({ params }: { params: Promise<{ eventId: st
               <tr>
                 <th>Produto</th>
                 <th>Preço</th>
+                <th>Custo</th>
+                <th>Lucro un.</th>
                 <th>Estoque</th>
                 <th>Mínimo</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => (
+              {products.map((p) => {
+                const lucro = Number(p.price) - Number(p.costPrice ?? 0);
+                return (
                 <tr key={p.id}>
                   <td>{p.name}</td>
                   <td>{Number(p.price).toFixed(2)}</td>
+                  <td>{Number(p.costPrice ?? 0).toFixed(2)}</td>
+                  <td style={{ color: lucro >= 0 ? 'var(--accent)' : 'var(--danger)' }}>
+                    {lucro.toFixed(2)}
+                  </td>
                   <td style={{ color: p.stock <= p.minStock ? 'var(--danger)' : undefined }}>
                     {p.stock}
                   </td>
                   <td>{p.minStock}</td>
                   <td>{p.active ? 'Ativo' : 'Inativo'}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

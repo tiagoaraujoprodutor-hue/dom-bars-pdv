@@ -5,6 +5,13 @@ import { api, openPdf } from '@/lib/api';
 import { maskCpf } from '@/lib/cpf';
 import { Topbar } from '@/components/topbar';
 
+interface FinancialSummary {
+  faturamento: string;
+  custo: string;
+  lucro: string;
+  margem: string;
+}
+
 interface AttendantClosing {
   userId: string;
   name: string;
@@ -25,6 +32,7 @@ function brl(v: string): string {
 
 const REPORTS: { path: string; label: string }[] = [
   { path: 'general', label: 'Relatório geral' },
+  { path: 'profit-by-product', label: 'Lucro por produto' },
   { path: 'sales-by-operator', label: 'Vendas por operador' },
   { path: 'sales-by-machine', label: 'Vendas por máquina' },
   { path: 'sales-by-product', label: 'Vendas por produto' },
@@ -43,6 +51,17 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
   const [closeResult, setCloseResult] = useState('');
   const [cpf, setCpf] = useState('');
   const [closing, setClosing] = useState<AttendantClosing[] | null>(null);
+  const [fin, setFin] = useState<FinancialSummary | null>(null);
+
+  async function loadFinancials() {
+    setError('');
+    try {
+      const data = await api<FinancialSummary>(`/events/${eventId}/reports/financial-summary`);
+      setFin(data);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   async function download(path: string) {
     setError('');
@@ -109,6 +128,41 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
               ⬇ {r.label}
             </button>
           ))}
+        </div>
+
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3>Resumo financeiro (lucro da festa)</h3>
+          <p className="muted">
+            Faturamento menos o custo dos produtos vendidos (valor de compra × quantidade). É o lucro
+            geral do evento.
+          </p>
+          <button type="button" className="secondary" onClick={loadFinancials}>
+            Calcular lucro
+          </button>
+          {fin && (
+            <div className="grid grid-2" style={{ marginTop: 12 }}>
+              <div>
+                <div className="muted">Faturamento</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>{brl(fin.faturamento)}</div>
+              </div>
+              <div>
+                <div className="muted">Custo dos produtos</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--danger)' }}>
+                  -{brl(fin.custo)}
+                </div>
+              </div>
+              <div>
+                <div className="muted">Lucro bruto</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--accent)' }}>
+                  {brl(fin.lucro)}
+                </div>
+              </div>
+              <div>
+                <div className="muted">Margem de lucro</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>{fin.margem}%</div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="card" style={{ marginTop: 16 }}>

@@ -134,6 +134,7 @@ model Product {
   category   Category? @relation(fields: [categoryId], references: [id])
   name       String
   price      Decimal   @db.Decimal(10, 2)
+  costPrice  Decimal   @db.Decimal(10, 2) @default(0)
   stock      Int       @default(0)
   minStock   Int       @default(0)
   active     Boolean   @default(true)
