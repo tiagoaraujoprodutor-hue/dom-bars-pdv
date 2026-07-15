@@ -1,26 +1,16 @@
-apply plugin: 'com.android.library'
-apply plugin: 'org.jetbrains.kotlin.android'
+// Módulo local do Expo: o `expo-module-gradle-plugin` configura o android library,
+// o Kotlin, o KSP e — o essencial — coloca o `expo-modules-core` no classpath
+// (era isso que faltava: as classes expo.modules.* não eram encontradas no build).
+apply plugin: 'expo-module-gradle-plugin'
 
 group = 'com.dombars.smart2printer'
 version = '0.1.0'
 
-def expoModulesCorePlugin = new File(
-  project(":expo-modules-core").projectDir.absolutePath,
-  "ExpoModulesCorePlugin.gradle"
-)
-apply from: expoModulesCorePlugin
-applyKotlinExpoModulesCorePlugin()
-
 android {
-  namespace "com.dombars.smart2printer"
-  compileSdkVersion rootProject.ext.compileSdkVersion ?: 35
-  defaultConfig {
-    minSdkVersion rootProject.ext.minSdkVersion ?: 24
-  }
+  namespace = "com.dombars.smart2printer"
 }
 
 dependencies {
   // Biblioteca oficial da impressora Sunmi (Smart POS P2 = Sunmi P2).
-  // Resolve do Maven Central — não precisa de SDK/.aar do fabricante.
   implementation 'com.sunmi:printerlibrary:1.0.18'
 }
