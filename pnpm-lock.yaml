@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  hermes-compiler: 0.15.0
-
 importers:
 
   .:
@@ -3143,8 +3140,8 @@ packages:
     resolution: {integrity: sha512-DRgTIUgnWcJ62KyarxxziuqYxKGnR6Rgg19BlbucN/dpmJbl1XOit6qvoOX0ZT+HhWe5OUVhU/a1zpGyc1xA0Q==}
     engines: {node: '>=18.0.0'}
 
-  hermes-compiler@0.15.0:
-    resolution: {integrity: sha512-Nd1+ktGvauZ8PVWwQMUfi1bP4hQiq0jhuavkrTpbkknDAlCKDRicYeK1tjELKfx3jdI0cL3FKJvGMmoIjizRZQ==}
+  hermes-compiler@0.0.0:
+    resolution: {integrity: sha512-boVFutx6ME/Km2mB6vvsQcdnazEYYI/jV1pomx1wcFUG/EVqTkr5CU0CW9bKipOA/8Hyu3NYwW3THg2Q1kNCfA==}
 
   hermes-estree@0.32.0:
     resolution: {integrity: sha512-KWn3BqnlDOl97Xe1Yviur6NbgIZ+IP+UVSpshlZWkq+EtoHg6/cwiDj/osP9PCEgFE15KBm1O55JRwbMEm5ejQ==}
@@ -8626,7 +8623,7 @@ snapshots:
 
   helmet@8.2.0: {}
 
-  hermes-compiler@0.15.0: {}
+  hermes-compiler@0.0.0: {}
 
   hermes-estree@0.32.0: {}
 
@@ -10116,7 +10113,7 @@ snapshots:
       commander: 12.1.0
       flow-enums-runtime: 0.0.6
       glob: 7.2.3
-      hermes-compiler: 0.15.0
+      hermes-compiler: 0.0.0
       invariant: 2.2.4
       jest-environment-node: 29.7.0
       memoize-one: 5.2.1

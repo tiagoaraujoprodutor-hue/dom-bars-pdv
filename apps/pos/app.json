@@ -7,17 +7,13 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "jsEngine": "jsc",
     "platforms": ["android", "ios"],
     "android": {
-      "package": "com.dombars.pos"
+      "package": "com.dombars.pos",
+      "jsEngine": "jsc"
     },
-    "plugins": [
-      "expo-sqlite",
-      [
-        "expo-build-properties",
-        { "android": { "usesCleartextTraffic": true, "useHermesV1": false } }
-      ]
-    ],
+    "plugins": ["expo-sqlite", "./plugins/withPosNativeFixes"],
     "extra": {
       "eas": {
         "projectId": "8ad343fe-7b5a-45d6-9147-c4d8da014cf5"
