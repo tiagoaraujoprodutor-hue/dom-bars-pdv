@@ -15,12 +15,18 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://a5x20gmyov1x7ducn17661ik.167.233.235.23.sslip.io"
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://a5x20gmyov1x7ducn17661ik.167.233.235.23.sslip.io"
       }
     }
   },
