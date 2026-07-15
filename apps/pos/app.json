@@ -2,6 +2,7 @@
   "expo": {
     "name": "PDV POS",
     "slug": "dom-bars-pos",
+    "owner": "dom-bars",
     "scheme": "dompos",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,6 +12,11 @@
       "package": "com.dombars.pos",
       "usesCleartextTraffic": true
     },
-    "plugins": ["expo-sqlite"]
+    "plugins": ["expo-sqlite"],
+    "extra": {
+      "eas": {
+        "projectId": "8ad343fe-7b5a-45d6-9147-c4d8da014cf5"
+      }
+    }
   }
 }
