@@ -35,6 +35,16 @@ export interface ReceiptInput {
   serviceFee: string;
   total: string;
   payments: SalePaymentInput[];
+  /** Nome da atendente que registrou a venda (opcional). */
+  attendant?: string;
+  /** Data/hora da venda já formatada (opcional). */
+  dateTime?: string;
+}
+
+/** Metadados opcionais impressos no topo da ficha do bar. */
+export interface TicketMeta {
+  attendant?: string;
+  dateTime?: string;
 }
 
 function money(value: string): string {
@@ -46,6 +56,8 @@ export function buildReceipt(input: ReceiptInput): PrintJob {
   const lines: string[] = [];
   lines.push(input.eventName);
   lines.push('CUPOM NAO FISCAL');
+  if (input.dateTime) lines.push(input.dateTime);
+  if (input.attendant) lines.push(`Atendente: ${input.attendant}`);
   lines.push('--------------------------------');
   for (const item of input.items) {
     lines.push(`${item.quantity}x ${item.name}`);
@@ -66,9 +78,16 @@ export function buildReceipt(input: ReceiptInput): PrintJob {
   return { kind: 'receipt', title: 'Comprovante', lines };
 }
 
-/** Ficha de produção/bar: o que preparar (sem valores). */
-export function buildProductionTicket(eventName: string, items: ReceiptLine[]): PrintJob {
-  const lines = [eventName, 'PRODUCAO / BAR', '--------------------------------'];
+/** Ficha de produção/bar: o que preparar/entregar (sem valores). */
+export function buildProductionTicket(
+  eventName: string,
+  items: ReceiptLine[],
+  meta: TicketMeta = {},
+): PrintJob {
+  const lines = [eventName, 'PRODUCAO / BAR'];
+  if (meta.dateTime) lines.push(meta.dateTime);
+  if (meta.attendant) lines.push(`Atendente: ${meta.attendant}`);
+  lines.push('--------------------------------');
   for (const item of items) {
     lines.push(`${item.quantity}x ${item.name}`);
   }

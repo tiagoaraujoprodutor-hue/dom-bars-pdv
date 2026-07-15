@@ -96,6 +96,8 @@ export default function App() {
       //    b) Ficha do bar (só o que preparar/entregar, sem valores).
       const total = payload.payments.reduce((a, p) => a + Number(p.amount), 0).toFixed(2);
       const eventName = event?.name ?? 'Evento';
+      const attendant = user?.name;
+      const dateTime = new Date().toLocaleString('pt-BR');
       await printer
         .print(
           buildReceipt({
@@ -106,14 +108,18 @@ export default function App() {
             serviceFee: '0.00',
             total,
             payments: payload.payments,
+            attendant,
+            dateTime,
           }),
         )
         .catch(() => undefined);
-      await printer.print(buildProductionTicket(eventName, receiptLines)).catch(() => undefined);
+      await printer
+        .print(buildProductionTicket(eventName, receiptLines, { attendant, dateTime }))
+        .catch(() => undefined);
 
       return { offline: !online };
     },
-    [online, event],
+    [online, event, user],
   );
 
   if (!user) {

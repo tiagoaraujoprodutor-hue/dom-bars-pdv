@@ -1,6 +1,15 @@
 import { uuid, type PaymentMethod, type ReceiptLine, type SalePayload } from '@dom-bars/shared';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { api } from '../lib/api';
 import { colors, styles } from '../theme';
 
@@ -36,6 +45,9 @@ export function SaleScreen({
   const [cart, setCart] = useState<Record<string, CartLine>>({});
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
+  // Produto em edição de quantidade rápida (long-press no produto).
+  const [qtyProduct, setQtyProduct] = useState<Product | null>(null);
+  const [qtyValue, setQtyValue] = useState('');
 
   // Carrega o catálogo do evento. Em produção pode-se cachear localmente p/ offline.
   useEffect(() => {
@@ -48,12 +60,45 @@ export function SaleScreen({
     () => Object.values(cart).reduce((acc, l) => acc + Number(l.product.price) * l.qty, 0),
     [cart],
   );
+  const lines = Object.values(cart);
+  const itemCount = lines.reduce((a, l) => a + l.qty, 0);
 
-  function addToCart(product: Product): void {
+  function bump(product: Product, delta: number): void {
     setCart((prev) => {
-      const existing = prev[product.id];
-      return { ...prev, [product.id]: { product, qty: (existing?.qty ?? 0) + 1 } };
+      const qty = (prev[product.id]?.qty ?? 0) + delta;
+      const next = { ...prev };
+      if (qty <= 0) delete next[product.id];
+      else next[product.id] = { product, qty };
+      return next;
     });
+  }
+
+  function setExactQty(product: Product, qty: number): void {
+    setCart((prev) => {
+      const next = { ...prev };
+      if (!Number.isFinite(qty) || qty <= 0) delete next[product.id];
+      else next[product.id] = { product, qty: Math.floor(qty) };
+      return next;
+    });
+  }
+
+  function removeLine(productId: string): void {
+    setCart((prev) => {
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
+  }
+
+  function openQty(product: Product): void {
+    setQtyProduct(product);
+    setQtyValue(String(cart[product.id]?.qty ?? ''));
+  }
+
+  function confirmQty(): void {
+    if (qtyProduct) setExactQty(qtyProduct, Number(qtyValue.replace(/\D/g, '')));
+    setQtyProduct(null);
+    setQtyValue('');
   }
 
   function clear(): void {
@@ -66,12 +111,12 @@ export function SaleScreen({
     const payload: SalePayload = {
       clientId: uuid(),
       machineId: 'smart2-terminal',
-      items: Object.values(cart).map((l) => ({ productId: l.product.id, quantity: l.qty })),
+      items: lines.map((l) => ({ productId: l.product.id, quantity: l.qty })),
       payments: [{ method, amount: total.toFixed(2) }],
     };
     // Linhas do cupom (nome/qtd/preço) — o comprovante lista os itens para
     // retirada no bar. Montadas aqui porque o carrinho tem nome e preço.
-    const receiptLines: ReceiptLine[] = Object.values(cart).map((l) => ({
+    const receiptLines: ReceiptLine[] = lines.map((l) => ({
       name: l.product.name,
       quantity: l.qty,
       unitPrice: l.product.price,
@@ -105,17 +150,63 @@ export function SaleScreen({
             data={products}
             keyExtractor={(p) => p.id}
             numColumns={2}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.productTile} onPress={() => addToCart(item)}>
-                <Text style={styles.productName}>{item.name}</Text>
-                <Text style={styles.productPrice}>R$ {Number(item.price).toFixed(2)}</Text>
-              </TouchableOpacity>
-            )}
+            renderItem={({ item }) => {
+              const qty = cart[item.id]?.qty;
+              return (
+                <TouchableOpacity
+                  style={styles.productTile}
+                  onPress={() => bump(item, 1)}
+                  onLongPress={() => openQty(item)}
+                >
+                  {qty ? (
+                    <View style={styles.qtyBadge}>
+                      <Text style={styles.qtyBadgeText}>{qty}</Text>
+                    </View>
+                  ) : null}
+                  <Text style={styles.productName}>{item.name}</Text>
+                  <Text style={styles.productPrice}>R$ {Number(item.price).toFixed(2)}</Text>
+                </TouchableOpacity>
+              );
+            }}
             ListEmptyComponent={<Text style={styles.subtitle}>Carregando produtos…</Text>}
           />
+
+          {lines.length > 0 ? (
+            <View style={[styles.card, { paddingVertical: 8 }]}>
+              <ScrollView style={{ maxHeight: 150 }}>
+                {lines.map((l) => (
+                  <View key={l.product.id} style={styles.cartRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cartName}>{l.product.name}</Text>
+                      <Text style={styles.cartSub}>
+                        {l.qty} × R$ {Number(l.product.price).toFixed(2)} = R${' '}
+                        {(Number(l.product.price) * l.qty).toFixed(2)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity style={styles.stepBtn} onPress={() => bump(l.product, -1)}>
+                      <Text style={styles.stepText}>−</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.stepQty} onPress={() => openQty(l.product)}>
+                      <Text style={styles.stepText}>{l.qty}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.stepBtn} onPress={() => bump(l.product, 1)}>
+                      <Text style={styles.stepText}>+</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.removeBtn}
+                      onPress={() => removeLine(l.product.id)}
+                    >
+                      <Text style={styles.removeText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+
           <View style={styles.card}>
             <Text style={styles.productName}>Total: R$ {total.toFixed(2)}</Text>
-            <Text style={styles.subtitle}>{Object.keys(cart).length} item(ns)</Text>
+            <Text style={styles.subtitle}>{itemCount} item(ns)</Text>
             <TouchableOpacity
               style={[styles.button, { opacity: total > 0 ? 1 : 0.4 }]}
               disabled={total <= 0}
@@ -143,6 +234,39 @@ export function SaleScreen({
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
       )}
+
+      {/* Quantidade rápida: digitar o número em vez de tocar várias vezes. */}
+      <Modal transparent visible={qtyProduct != null} animationType="fade" onRequestClose={confirmQty}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.title}>{qtyProduct?.name}</Text>
+            <Text style={styles.subtitle}>Quantidade</Text>
+            <TextInput
+              style={styles.input}
+              value={qtyValue}
+              onChangeText={setQtyValue}
+              keyboardType="number-pad"
+              autoFocus
+              placeholder="0"
+              placeholderTextColor="#6b7794"
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.secondaryButton, { flex: 1 }]}
+                onPress={() => {
+                  setQtyProduct(null);
+                  setQtyValue('');
+                }}
+              >
+                <Text style={styles.secondaryText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, { flex: 1 }]} onPress={confirmQty}>
+                <Text style={styles.buttonText}>Aplicar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

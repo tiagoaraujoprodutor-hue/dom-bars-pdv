@@ -10,6 +10,8 @@ describe('buildReceipt', () => {
       serviceFee: '3.60',
       total: '39.60',
       payments: [{ method: 'PIX', amount: '39.60' }],
+      attendant: 'Maria',
+      dateTime: '15/07/2026 22:30',
     });
 
     expect(job.kind).toBe('receipt');
@@ -17,6 +19,8 @@ describe('buildReceipt', () => {
     expect(job.lines).toContain('Taxa de servico: R$ 3.60');
     expect(job.lines).toContain('TOTAL: R$ 39.60');
     expect(job.lines.some((l) => l.includes('PIX'))).toBe(true);
+    expect(job.lines).toContain('Atendente: Maria');
+    expect(job.lines).toContain('15/07/2026 22:30');
   });
 
   it('omite a taxa de serviço quando zero', () => {
@@ -33,9 +37,14 @@ describe('buildReceipt', () => {
   });
 
   it('ficha de produção não expõe valores', () => {
-    const job = buildProductionTicket('Festa', [{ name: 'Caipirinha', quantity: 3, unitPrice: '18.00' }]);
+    const job = buildProductionTicket(
+      'Festa',
+      [{ name: 'Caipirinha', quantity: 3, unitPrice: '18.00' }],
+      { attendant: 'Maria', dateTime: '15/07/2026 22:30' },
+    );
     expect(job.kind).toBe('production');
     expect(job.lines).toContain('3x Caipirinha');
+    expect(job.lines).toContain('Atendente: Maria');
     expect(job.lines.some((l) => l.includes('R$'))).toBe(false);
   });
 });
