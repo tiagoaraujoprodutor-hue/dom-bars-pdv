@@ -3,7 +3,10 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable
 COPY . .
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
+# NEXT_PUBLIC_* precisa existir no BUILD (o Next embute no bundle).
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN pnpm --filter @dom-bars/web build
 
 FROM node:22-alpine AS runner
