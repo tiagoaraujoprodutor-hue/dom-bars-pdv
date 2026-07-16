@@ -1,26 +1,31 @@
 // Plugin de config local (determinístico) para o build Android do PDV.
-// Faz duas coisas que precisam ser garantidas no APK:
-//   1. hermesEnabled=false → usa o motor JSC. Evitamos o Hermes porque o
-//      react-native 0.82.1 aponta o hermesc para o pacote `hermes-compiler`
-//      (que vem vazio/quebrado) e as versões alternativas geram bytecode
-//      possivelmente incompatível. JSC é estável e suficiente para o PDV.
-//   2. android:usesCleartextTraffic="true" → a API roda em HTTP (sslip.io),
-//      e o Android 9+ bloqueia HTTP por padrão.
-const { withGradleProperties, withAndroidManifest } = require('@expo/config-plugins');
-
-function setGradleProperty(properties, key, value) {
-  const existing = properties.find((item) => item.type === 'property' && item.key === key);
-  if (existing) {
-    existing.value = value;
-  } else {
-    properties.push({ type: 'property', key, value });
-  }
-  return properties;
-}
+// Faz dois ajustes que precisam ser garantidos no APK:
+//
+//   1. hermesCommand → react-native/sdks/hermesc
+//      O Expo/RN 0.82.1 aponta o compilador Hermes para o pacote npm
+//      `hermes-compiler`, que o RN declara como 0.0.0 (stub VAZIO, sem binário)
+//      — daí a falha em :app:createBundleReleaseJsAndAssets. O hermesc correto,
+//      casado com o runtime `hermes-android` do RN 0.82.1, é o que vem dentro do
+//      próprio react-native, em sdks/hermesc. Redirecionamos para lá.
+//      (Mantemos o Hermes porque o expo-modules-core exige o motor Hermes; trocar
+//      para JSC quebra a compilação do expo-modules-core.)
+//
+//   2. android:usesCleartextTraffic="true"
+//      A API roda em HTTP (sslip.io) e o Android 9+ bloqueia HTTP por padrão.
+const { withAppBuildGradle, withAndroidManifest } = require('@expo/config-plugins');
 
 module.exports = function withPosNativeFixes(config) {
-  config = withGradleProperties(config, (cfg) => {
-    cfg.modResults = setGradleProperty(cfg.modResults, 'hermesEnabled', 'false');
+  config = withAppBuildGradle(config, (cfg) => {
+    // Resolve o hermesc que acompanha o react-native (compatível com o runtime).
+    const sdksHermesCommand =
+      'hermesCommand = new File(["node", "--print", ' +
+      '"require.resolve(\'react-native/package.json\')"]' +
+      '.execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath()' +
+      ' + "/sdks/hermesc/%OS-BIN%/hermesc"';
+    cfg.modResults.contents = cfg.modResults.contents.replace(
+      /hermesCommand = new File\(\["node".*?%OS-BIN%\/hermesc"/,
+      sdksHermesCommand,
+    );
     return cfg;
   });
 

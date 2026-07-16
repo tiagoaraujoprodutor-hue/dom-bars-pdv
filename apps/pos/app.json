@@ -7,11 +7,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "jsEngine": "jsc",
     "platforms": ["android", "ios"],
     "android": {
-      "package": "com.dombars.pos",
-      "jsEngine": "jsc"
+      "package": "com.dombars.pos"
     },
     "plugins": ["expo-sqlite", "./plugins/withPosNativeFixes"],
     "extra": {
