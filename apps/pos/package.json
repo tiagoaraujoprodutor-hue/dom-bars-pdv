@@ -11,14 +11,13 @@
   },
   "dependencies": {
     "@dom-bars/shared": "workspace:*",
-    "@react-native-async-storage/async-storage": "3.1.1",
-    "expo": "~56.0.12",
-    "expo-build-properties": "^56.0.23",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~56.0.16",
     "expo-network": "~56.0.5",
     "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
-    "react": "19.2.7",
-    "react-native": "0.82.1"
+    "react": "19.2.3",
+    "react-native": "0.85.3"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
