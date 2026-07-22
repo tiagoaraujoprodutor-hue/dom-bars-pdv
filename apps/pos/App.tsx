@@ -148,7 +148,14 @@ export default function App() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
         <StatusBar style="light" />
-        <EventPickerScreen onPick={setEvent} />
+        <EventPickerScreen
+          onPick={setEvent}
+          onLogout={() => {
+            logout().catch(() => undefined);
+            setUser(null);
+            setEvent(null);
+          }}
+        />
       </SafeAreaView>
     );
   }

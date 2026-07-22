@@ -10,7 +10,13 @@ export interface EventItem {
   role: string;
 }
 
-export function EventPickerScreen({ onPick }: { onPick: (event: EventItem) => void }) {
+export function EventPickerScreen({
+  onPick,
+  onLogout,
+}: {
+  onPick: (event: EventItem) => void;
+  onLogout: () => void;
+}) {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [error, setError] = useState('');
 
@@ -36,6 +42,9 @@ export function EventPickerScreen({ onPick }: { onPick: (event: EventItem) => vo
           </TouchableOpacity>
         )}
       />
+      <TouchableOpacity style={[styles.secondaryButton, { marginTop: 12 }]} onPress={onLogout}>
+        <Text style={styles.secondaryText}>Sair / trocar usuário</Text>
+      </TouchableOpacity>
     </View>
   );
 }
