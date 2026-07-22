@@ -272,6 +272,8 @@ model Sale {
   serviceFee     Decimal       @default(0) @db.Decimal(10, 2)
   total          Decimal       @db.Decimal(10, 2)
   status         SaleStatus    @default(CONCLUIDA)
+  reprintCount   Int           @default(0)
+  reprintedAt    DateTime?
   createdAt      DateTime      @default(now())
 
   items    SaleItem[]

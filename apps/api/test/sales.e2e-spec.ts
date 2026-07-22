@@ -245,6 +245,52 @@ describe('Núcleo operacional — ciclo de venda (e2e)', () => {
     expect(reloaded.status).toBe('FECHADA');
   });
 
+  it('aba de pedidos: lista gerenciada e reimpressão registrada (senha admin)', async () => {
+    const venda = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId: randomUUID(),
+        items: [{ productId: AGUA, quantity: 1 }],
+        payments: [{ method: PaymentMethod.PIX, amount: '10.00' }],
+      });
+    expect(venda.status).toBe(201);
+    const saleId = venda.body.id as string;
+
+    // Sem a senha admin correta → barra o acesso à aba.
+    const semSenha = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales/manage`)
+      .set(auth(operToken))
+      .send({ adminPassword: 'errada' });
+    expect(semSenha.status).toBe(403);
+
+    // Com a senha → lista com nome do atendente, itens e reimpressões.
+    const lista = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales/manage`)
+      .set(auth(operToken))
+      .send({ adminPassword: ADMIN_PASSWORD });
+    expect(lista.status).toBe(201);
+    const pedido = (lista.body as { id: string; operatorName: string; reprintCount: number; items: { name: string }[] }[]).find(
+      (p) => p.id === saleId,
+    );
+    expect(pedido?.operatorName).toBeTruthy();
+    expect(pedido?.items[0]?.name).toBeTruthy();
+    expect(pedido?.reprintCount).toBe(0);
+
+    // Reimprime → conta sobe e registra auditoria.
+    const rep = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales/${saleId}/reprint`)
+      .set(auth(operToken))
+      .send({ adminPassword: ADMIN_PASSWORD });
+    expect(rep.status).toBe(201);
+    expect(rep.body.reprintCount).toBe(1);
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: 'SALE_REPRINT', entityId: saleId },
+    });
+    expect(audit).not.toBeNull();
+  });
+
   it('cancela venda (admin + senha admin) e estorna estoque', async () => {
     const clientId = randomUUID();
     const sale = await request(app.getHttpServer())
@@ -271,13 +317,21 @@ describe('Núcleo operacional — ciclo de venda (e2e)', () => {
     expect(refund).not.toBeNull();
   });
 
-  it('operador não cancela venda (RBAC)', async () => {
+  it('cancelamento exige a senha admin (senha errada é barrada)', async () => {
     const sale = await prisma.sale.findFirst({ where: { eventId, status: 'CONCLUIDA' } });
-    const res = await request(app.getHttpServer())
+    // Senha errada → barrado (independente do cargo).
+    const errada = await request(app.getHttpServer())
       .post(`/events/${eventId}/sales/${sale?.id}/cancel`)
       .set(auth(operToken))
-      .send({ adminPassword: ADMIN_PASSWORD, reason: 'tentativa' });
-    expect(res.status).toBe(403);
+      .send({ adminPassword: 'errada', reason: 'tentativa' });
+    expect(errada.status).toBe(403);
+
+    // Senha correta → o admin autoriza na máquina da atendente (operador) → cancela.
+    const ok = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales/${sale?.id}/cancel`)
+      .set(auth(operToken))
+      .send({ adminPassword: ADMIN_PASSWORD, reason: 'autorizado pelo admin' });
+    expect(ok.status).toBe(201);
   });
 
   it('cortesia exige senha admin e gera auditoria', async () => {

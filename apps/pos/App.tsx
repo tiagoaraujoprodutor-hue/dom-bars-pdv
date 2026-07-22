@@ -17,11 +17,12 @@ import { api } from './src/lib/api';
 import { EventPickerScreen, type EventItem } from './src/screens/EventPickerScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { OpenCashScreen } from './src/screens/OpenCashScreen';
+import { OrdersScreen } from './src/screens/OrdersScreen';
 import { SaleScreen } from './src/screens/SaleScreen';
 import { TabsScreen } from './src/screens/TabsScreen';
 import { colors } from './src/theme';
 
-type Tab = 'sale' | 'tabs';
+type Tab = 'sale' | 'tabs' | 'orders';
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -174,13 +175,16 @@ export default function App() {
       <View style={{ flex: 1 }}>
         {tab === 'sale' ? (
           <SaleScreen eventId={event.id} online={online} pending={pending} onCheckout={onCheckout} />
-        ) : (
+        ) : tab === 'tabs' ? (
           <TabsScreen eventId={event.id} />
+        ) : (
+          <OrdersScreen eventId={event.id} eventName={event.name} />
         )}
       </View>
       <View style={{ flexDirection: 'row', borderTopColor: colors.border, borderTopWidth: 1 }}>
         <NavButton label="Vender" active={tab === 'sale'} onPress={() => setTab('sale')} />
         <NavButton label="Comandas" active={tab === 'tabs'} onPress={() => setTab('tabs')} />
+        <NavButton label="Pedidos" active={tab === 'orders'} onPress={() => setTab('orders')} />
         <NavButton
           label="Sair"
           active={false}

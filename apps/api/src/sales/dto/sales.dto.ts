@@ -30,3 +30,9 @@ export const cancelSaleSchema = z.object({
   reason: z.string().min(3, 'Motivo obrigatório'),
 });
 export type CancelSaleDto = z.infer<typeof cancelSaleSchema>;
+
+/** Ação de gestão protegida pela senha administrativa (listar/reimprimir). */
+export const manageSchema = z.object({
+  adminPassword: z.string().min(1),
+});
+export type ManageDto = z.infer<typeof manageSchema>;

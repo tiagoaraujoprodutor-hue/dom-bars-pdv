@@ -206,6 +206,68 @@ export class SalesService {
     });
   }
 
+  /**
+   * Lista de pedidos para a aba de gestão (app, aberta com senha admin): inclui
+   * o NOME do atendente, itens, valores, hora, forma de pagamento e o registro
+   * de reimpressão. Limitada às últimas vendas para não pesar no terminal.
+   */
+  async listSalesManaged(eventId: string) {
+    const sales = await this.prisma.sale.findMany({
+      where: { eventId },
+      include: saleInclude,
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+    const operatorIds = [...new Set(sales.map((s) => s.operatorId))];
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: operatorIds } },
+      select: { id: true, name: true },
+    });
+    const nameById = new Map(users.map((u) => [u.id, u.name]));
+    return sales.map((s) => ({
+      id: s.id,
+      createdAt: s.createdAt,
+      operatorId: s.operatorId,
+      operatorName: nameById.get(s.operatorId) ?? '—',
+      machineId: s.machineId,
+      total: s.total,
+      status: s.status,
+      reprintCount: s.reprintCount,
+      reprintedAt: s.reprintedAt,
+      items: s.items.map((i) => ({
+        name: i.product.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        isCourtesy: i.isCourtesy,
+      })),
+      payments: s.payments.map((p) => ({ method: p.method, amount: p.amount })),
+    }));
+  }
+
+  /** Registra a reimpressão da ficha (conta + data + auditoria) e devolve a venda. */
+  async reprint(eventId: string, saleId: string, userId: string, companyId: string) {
+    const sale = await this.prisma.sale.findFirst({ where: { id: saleId, eventId } });
+    if (!sale) throw new NotFoundException('Venda não encontrada');
+
+    const updated = await this.prisma.sale.update({
+      where: { id: sale.id },
+      data: { reprintCount: { increment: 1 }, reprintedAt: new Date() },
+      include: saleInclude,
+    });
+
+    await this.audit.record({
+      action: 'SALE_REPRINT',
+      userId,
+      companyId,
+      eventId,
+      entity: 'Sale',
+      entityId: sale.id,
+      metadata: { reprintCount: updated.reprintCount },
+    });
+
+    return updated;
+  }
+
   async getSale(eventId: string, id: string) {
     const sale = await this.prisma.sale.findFirst({
       where: { id, eventId },

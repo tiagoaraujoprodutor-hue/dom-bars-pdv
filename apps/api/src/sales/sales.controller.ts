@@ -8,12 +8,15 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { EventScopeGuard } from '../auth/guards/event-scope.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { AdminPasswordService } from '../auth/admin-password.service';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import {
   CancelSaleDto,
   CreateSaleDto,
+  ManageDto,
   cancelSaleSchema,
   createSaleSchema,
+  manageSchema,
 } from './dto/sales.dto';
 import { SalesService } from './sales.service';
 
@@ -22,7 +25,10 @@ import { SalesService } from './sales.service';
 @Controller('events/:eventId/sales')
 @UseGuards(JwtAuthGuard, EventScopeGuard, RolesGuard)
 export class SalesController {
-  constructor(private readonly sales: SalesService) {}
+  constructor(
+    private readonly sales: SalesService,
+    private readonly adminPassword: AdminPasswordService,
+  ) {}
 
   /** Venda avulsa (operador). */
   @Post()
@@ -55,9 +61,39 @@ export class SalesController {
     return this.sales.getSale(scope.eventId, id);
   }
 
-  /** Estorno/reembolso: somente Administrador + senha admin. */
+  /**
+   * Aba de gestão de pedidos (app): lista os pedidos com nome do atendente,
+   * itens, valores, hora, forma de pagamento e reimpressões. Liberada a qualquer
+   * membro do evento MEDIANTE a senha administrativa (o admin abre a aba na
+   * máquina da atendente).
+   */
+  @Post('manage')
+  async manage(
+    @EventScopeParam() scope: EventScope,
+    @Body(new ZodValidationPipe(manageSchema)) dto: ManageDto,
+  ) {
+    await this.adminPassword.assertValid(scope.eventId, dto.adminPassword);
+    return this.sales.listSalesManaged(scope.eventId);
+  }
+
+  /** Reimpressão da ficha (registrada no sistema) — exige a senha admin. */
+  @Post(':id/reprint')
+  async reprint(
+    @EventScopeParam() scope: EventScope,
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(manageSchema)) dto: ManageDto,
+  ) {
+    await this.adminPassword.assertValid(scope.eventId, dto.adminPassword);
+    return this.sales.reprint(scope.eventId, id, user.userId, user.companyId);
+  }
+
+  /**
+   * Estorno/cancelamento: exige a senha administrativa do evento. Liberado a
+   * qualquer membro que apresente a senha admin (o admin autoriza na máquina),
+   * validado no serviço via AdminPasswordService.
+   */
   @Post(':id/cancel')
-  @Roles(Role.ADMINISTRADOR)
   cancel(
     @EventScopeParam() scope: EventScope,
     @CurrentUser() user: AuthUser,
