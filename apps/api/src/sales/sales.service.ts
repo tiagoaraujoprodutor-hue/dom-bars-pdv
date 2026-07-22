@@ -134,8 +134,11 @@ export class SalesService {
 
     const sale = await this.prisma
       .$transaction(async (tx) => {
-        await this.inventory.applyConsumption(tx, input.lines);
-
+        // Cria a venda PRIMEIRO (sem travar o produto) e baixa o estoque por
+        // ÚLTIMO. A baixa (UPDATE ... decrement) trava a linha do produto até o
+        // commit; deixando-a no fim, a trava fica aberta por ~1-2ms em vez de
+        // durante toda a criação da venda. Isso evita o congestionamento quando
+        // muitos atendentes vendem o MESMO produto ao mesmo tempo (60+ máquinas).
         const created = await tx.sale.create({
           data: {
             eventId: input.eventId,
@@ -161,6 +164,10 @@ export class SalesService {
             data: { status: 'FECHADA', closedAt: new Date() },
           });
         }
+
+        // Baixa de estoque/insumos por último (menor janela de trava). Se faltar
+        // estoque, lança e desfaz a venda inteira (atômico).
+        await this.inventory.applyConsumption(tx, input.lines);
 
         return created;
       })
