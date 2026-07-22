@@ -1,15 +1,16 @@
 import { StyleSheet } from 'react-native';
 
+// Paleta alinhada ao painel web (visual escuro premium).
 export const colors = {
-  bg: '#0b1020',
-  panel: '#151b30',
-  panel2: '#1e2742',
-  text: '#e8ecf6',
-  muted: '#93a0bf',
+  bg: '#080b16',
+  panel: '#121830',
+  panel2: '#1b2340',
+  text: '#eef1fb',
+  muted: '#98a3c4',
   accent: '#34d399',
   accent2: '#60a5fa',
   danger: '#f87171',
-  border: '#2a3454',
+  border: '#232c4d',
 };
 
 export const styles = StyleSheet.create({
@@ -21,7 +22,7 @@ export const styles = StyleSheet.create({
     color: colors.text,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 14,
     fontSize: 16,
     marginBottom: 12,
@@ -29,7 +30,7 @@ export const styles = StyleSheet.create({
   button: {
     backgroundColor: colors.accent,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
   },
   buttonText: { color: '#04231a', fontWeight: '800', fontSize: 17 },
@@ -57,23 +58,23 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.panel,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     marginBottom: 12,
   },
   productTile: {
     flex: 1,
-    minHeight: 88,
+    minHeight: 92,
     backgroundColor: colors.panel,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 15,
     margin: 6,
-    padding: 12,
+    padding: 13,
     justifyContent: 'center',
   },
   productName: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  productPrice: { color: colors.accent, fontSize: 15, marginTop: 4 },
+  productPrice: { color: colors.accent, fontSize: 15, marginTop: 4, fontWeight: '700' },
   statusBar: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   qtyBadge: {

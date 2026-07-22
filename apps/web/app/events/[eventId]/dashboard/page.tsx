@@ -103,42 +103,73 @@ export default function DashboardPage({ params }: { params: Promise<{ eventId: s
 
           <div className="card">
             <h3>Formas de pagamento</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Forma</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(snap?.porFormaPagamento ?? []).map((p) => (
-                  <tr key={p.method}>
-                    <td>{p.method}</td>
-                    <td>{brl(p.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="bars">
+              {(() => {
+                const rows = snap?.porFormaPagamento ?? [];
+                const totalPg = rows.reduce((a, p) => a + Number(p.total), 0) || 1;
+                const cor: Record<string, string> = {
+                  PIX: 'var(--c-pix)',
+                  CREDITO: 'var(--c-cred)',
+                  DEBITO: 'var(--c-deb)',
+                  DINHEIRO: 'var(--c-din)',
+                  CORTESIA: 'var(--violet)',
+                };
+                return rows.map((p) => {
+                  const pct = (Number(p.total) / totalPg) * 100;
+                  const c = cor[p.method] ?? 'var(--accent)';
+                  return (
+                    <div className="bar-row" key={p.method}>
+                      <div className="bh">
+                        <span className="bn">
+                          <span className="sw" style={{ background: c }} />
+                          {p.method}
+                        </span>
+                        <span className="bv tnum">
+                          {brl(p.total)}
+                          <small>{pct.toFixed(0)}%</small>
+                        </span>
+                      </div>
+                      <div className="trk">
+                        <div className="fil" style={{ width: `${pct}%`, background: c }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+              {(snap?.porFormaPagamento ?? []).length === 0 && (
+                <p className="muted">Sem pagamentos ainda.</p>
+              )}
+            </div>
           </div>
 
           <div className="card">
             <h3>Produtos mais vendidos</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Produto</th>
-                  <th>Qtd</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(snap?.produtosMaisVendidos ?? []).map((p) => (
-                  <tr key={p.nome}>
-                    <td>{p.nome}</td>
-                    <td>{p.quantidade}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="bars">
+              {(() => {
+                const rows = snap?.produtosMaisVendidos ?? [];
+                const max = Math.max(1, ...rows.map((p) => p.quantidade));
+                return rows.map((p) => (
+                  <div className="bar-row" key={p.nome}>
+                    <div className="bh">
+                      <span className="bn">{p.nome}</span>
+                      <span className="bv tnum">{p.quantidade}</span>
+                    </div>
+                    <div className="trk">
+                      <div
+                        className="fil"
+                        style={{
+                          width: `${(p.quantidade / max) * 100}%`,
+                          background: 'linear-gradient(90deg,#0f5c46,#34d399)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                ));
+              })()}
+              {(snap?.produtosMaisVendidos ?? []).length === 0 && (
+                <p className="muted">Sem vendas ainda.</p>
+              )}
+            </div>
           </div>
 
           <div className="card">
