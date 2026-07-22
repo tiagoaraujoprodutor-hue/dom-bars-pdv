@@ -42,6 +42,16 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryText: { color: colors.text, fontWeight: '700', fontSize: 16 },
+  courtesyButton: {
+    backgroundColor: colors.panel2,
+    borderColor: colors.accent2,
+    borderWidth: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  courtesyText: { color: colors.accent2, fontWeight: '800', fontSize: 16 },
   error: { color: colors.danger, marginTop: 8 },
   card: {
     backgroundColor: colors.panel,

@@ -19,6 +19,8 @@ export interface SalePayload {
   items: SaleItemInput[];
   payments: SalePaymentInput[];
   applyServiceFee?: boolean;
+  /** Senha administrativa do evento — obrigatória quando o pagamento é CORTESIA. */
+  adminPassword?: string;
 }
 
 export interface ReceiptLine {

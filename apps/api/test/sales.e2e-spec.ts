@@ -138,6 +138,35 @@ describe('Núcleo operacional — ciclo de venda (e2e)', () => {
     expect(audit).not.toBeNull();
   });
 
+  it('cortesia como forma de pagamento exige a senha administrativa', async () => {
+    const base = {
+      items: [{ productId: AGUA, quantity: 1 }],
+      payments: [{ method: PaymentMethod.CORTESIA, amount: '10.00' }],
+    };
+
+    // Sem senha admin → recusa.
+    const semSenha = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({ clientId: randomUUID(), ...base });
+    expect(semSenha.status).toBe(400);
+
+    // Senha errada → 403.
+    const errada = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({ clientId: randomUUID(), ...base, adminPassword: 'errada' });
+    expect(errada.status).toBe(403);
+
+    // Senha correta → registra a venda como cortesia.
+    const ok = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({ clientId: randomUUID(), ...base, adminPassword: ADMIN_PASSWORD });
+    expect(ok.status).toBe(201);
+    expect(ok.body.payments[0].method).toBe(PaymentMethod.CORTESIA);
+  });
+
   it('vende produto com ficha técnica e baixa os insumos', async () => {
     const res = await request(app.getHttpServer())
       .post(`/events/${eventId}/sales`)

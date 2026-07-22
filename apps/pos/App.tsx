@@ -82,40 +82,52 @@ export default function App() {
       const engine = engineRef.current;
       if (!engine) throw new Error('Sincronização não iniciada');
 
-      // 1) Persiste de forma durável (nunca perde a venda).
+      // Imprime comprovante (cliente) + ficha do bar (retirada). Best-effort.
+      const printReceipts = async (): Promise<void> => {
+        const total = payload.payments.reduce((a, p) => a + Number(p.amount), 0).toFixed(2);
+        const eventName = event?.name ?? 'Evento';
+        const attendant = user?.name;
+        const dateTime = new Date().toLocaleString('pt-BR');
+        await printer
+          .print(
+            buildReceipt({
+              eventName,
+              saleId: payload.clientId,
+              items: receiptLines,
+              subtotal: total,
+              serviceFee: '0.00',
+              total,
+              payments: payload.payments,
+              attendant,
+              dateTime,
+            }),
+          )
+          .catch(() => undefined);
+        await printer
+          .print(buildProductionTicket(eventName, receiptLines, { attendant, dateTime }))
+          .catch(() => undefined);
+      };
+
+      // Cortesia (tem senha admin): vai DIRETO ao servidor, que valida a senha na
+      // hora. Não entra na fila offline — se a senha estiver errada, o erro aparece
+      // imediatamente (a chamada lança). Exige internet (garantido pela tela).
+      if (payload.adminPassword) {
+        if (!event) throw new Error('Evento não selecionado');
+        await api(`/events/${event.id}/sales`, { method: 'POST', body: payload });
+        await printReceipts();
+        return { offline: false };
+      }
+
+      // Fluxo normal (offline-first): 1) persiste durável (nunca perde a venda).
       await engine.enqueue('sale', payload, payload.clientId);
       setPending(await engine.pendingCount());
 
-      // 2) Tenta sincronizar agora se houver rede.
+      // 2) Sincroniza agora se houver rede.
       if (online) await engine.flush();
-      const remaining = await engine.pendingCount();
-      setPending(remaining);
+      setPending(await engine.pendingCount());
 
-      // 3) Imprime (best-effort, não bloqueia a venda):
-      //    a) Comprovante com os itens (o cliente retira os produtos no bar).
-      //    b) Ficha do bar (só o que preparar/entregar, sem valores).
-      const total = payload.payments.reduce((a, p) => a + Number(p.amount), 0).toFixed(2);
-      const eventName = event?.name ?? 'Evento';
-      const attendant = user?.name;
-      const dateTime = new Date().toLocaleString('pt-BR');
-      await printer
-        .print(
-          buildReceipt({
-            eventName,
-            saleId: payload.clientId,
-            items: receiptLines,
-            subtotal: total,
-            serviceFee: '0.00',
-            total,
-            payments: payload.payments,
-            attendant,
-            dateTime,
-          }),
-        )
-        .catch(() => undefined);
-      await printer
-        .print(buildProductionTicket(eventName, receiptLines, { attendant, dateTime }))
-        .catch(() => undefined);
+      // 3) Imprime.
+      await printReceipts();
 
       return { offline: !online };
     },

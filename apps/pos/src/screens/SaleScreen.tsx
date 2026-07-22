@@ -48,6 +48,9 @@ export function SaleScreen({
   // Produto em edição de quantidade rápida (long-press no produto).
   const [qtyProduct, setQtyProduct] = useState<Product | null>(null);
   const [qtyValue, setQtyValue] = useState('');
+  // Cortesia: modal da senha administrativa.
+  const [courtesyOpen, setCourtesyOpen] = useState(false);
+  const [adminPw, setAdminPw] = useState('');
 
   // Carrega o catálogo do evento. Em produção pode-se cachear localmente p/ offline.
   useEffect(() => {
@@ -106,13 +109,14 @@ export function SaleScreen({
     setPaying(false);
   }
 
-  async function pay(method: PaymentMethod): Promise<void> {
+  async function pay(method: PaymentMethod, adminPassword?: string): Promise<void> {
     setError('');
     const payload: SalePayload = {
       clientId: uuid(),
       machineId: 'smart2-terminal',
       items: lines.map((l) => ({ productId: l.product.id, quantity: l.qty })),
       payments: [{ method, amount: total.toFixed(2) }],
+      ...(adminPassword ? { adminPassword } : {}),
     };
     // Linhas do cupom (nome/qtd/preço) — o comprovante lista os itens para
     // retirada no bar. Montadas aqui porque o carrinho tem nome e preço.
@@ -121,18 +125,38 @@ export function SaleScreen({
       quantity: l.qty,
       unitPrice: l.product.price,
     }));
+    const isCourtesy = method === 'CORTESIA';
     try {
       const res = await onCheckout(payload, receiptLines);
       clear();
       Alert.alert(
-        res.offline ? 'Venda salva (offline)' : 'Venda concluída',
-        res.offline
-          ? 'Será sincronizada automaticamente ao reconectar.'
-          : 'Pagamento registrado e comprovante impresso.',
+        isCourtesy ? 'Cortesia registrada' : res.offline ? 'Venda salva (offline)' : 'Venda concluída',
+        isCourtesy
+          ? 'Brinde autorizado e registrado. Comprovante impresso.'
+          : res.offline
+            ? 'Será sincronizada automaticamente ao reconectar.'
+            : 'Pagamento registrado e comprovante impresso.',
       );
     } catch (err) {
       setError((err as Error).message);
     }
+  }
+
+  // Cortesia: pede a senha administrativa do evento antes de registrar o brinde.
+  function askCourtesyPassword(): void {
+    if (!online) {
+      setError('Cortesia precisa de internet (a senha é validada no servidor).');
+      return;
+    }
+    setAdminPw('');
+    setCourtesyOpen(true);
+  }
+
+  async function confirmCourtesy(): Promise<void> {
+    const pw = adminPw.trim();
+    setCourtesyOpen(false);
+    setAdminPw('');
+    if (pw) await pay('CORTESIA', pw);
   }
 
   return (
@@ -228,7 +252,14 @@ export function SaleScreen({
               <Text style={styles.buttonText}>{m}</Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => setPaying(false)}>
+          {/* Cortesia (brinde) — pede a senha administrativa do evento. */}
+          <TouchableOpacity style={styles.courtesyButton} onPress={askCourtesyPassword}>
+            <Text style={styles.courtesyText}>🎁 CORTESIA (brinde)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.secondaryButton, { marginTop: 10 }]}
+            onPress={() => setPaying(false)}
+          >
             <Text style={styles.secondaryText}>Voltar</Text>
           </TouchableOpacity>
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -262,6 +293,41 @@ export function SaleScreen({
               </TouchableOpacity>
               <TouchableOpacity style={[styles.button, { flex: 1 }]} onPress={confirmQty}>
                 <Text style={styles.buttonText}>Aplicar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cortesia: senha administrativa do evento. */}
+      <Modal transparent visible={courtesyOpen} animationType="fade" onRequestClose={() => setCourtesyOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.title}>Cortesia (brinde)</Text>
+            <Text style={styles.subtitle}>
+              Total R$ {total.toFixed(2)} · digite a senha administrativa do evento para autorizar.
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={adminPw}
+              onChangeText={setAdminPw}
+              secureTextEntry
+              autoFocus
+              placeholder="Senha administrativa"
+              placeholderTextColor="#6b7794"
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.secondaryButton, { flex: 1 }]}
+                onPress={() => {
+                  setCourtesyOpen(false);
+                  setAdminPw('');
+                }}
+              >
+                <Text style={styles.secondaryText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, { flex: 1 }]} onPress={confirmCourtesy}>
+                <Text style={styles.buttonText}>Autorizar</Text>
               </TouchableOpacity>
             </View>
           </View>

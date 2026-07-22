@@ -20,6 +20,8 @@ export const createSaleSchema = z.object({
   items: z.array(saleItemSchema).min(1),
   payments: z.array(paymentSchema).min(1),
   applyServiceFee: z.boolean().default(false),
+  /** Senha administrativa do evento — obrigatória quando há pagamento CORTESIA. */
+  adminPassword: z.string().optional(),
 });
 export type CreateSaleDto = z.infer<typeof createSaleSchema>;
 

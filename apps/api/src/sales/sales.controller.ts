@@ -40,6 +40,7 @@ export class SalesController {
       lines: dto.items,
       payments: dto.payments,
       applyServiceFee: dto.applyServiceFee,
+      adminPassword: dto.adminPassword,
     });
   }
 

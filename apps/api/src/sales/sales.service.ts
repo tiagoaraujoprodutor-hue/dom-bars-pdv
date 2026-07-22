@@ -29,6 +29,7 @@ export interface FinalizeSaleInput {
   lines: SaleLine[];
   payments: { method: PaymentMethod; amount: DecimalInput }[];
   applyServiceFee: boolean;
+  adminPassword?: string;
 }
 
 const saleInclude = {
@@ -108,6 +109,15 @@ export class SalesService {
       throw new BadRequestException(
         `Soma dos pagamentos (${paymentsTotal.toFixed(2)}) difere do total (${total.toFixed(2)})`,
       );
+    }
+
+    // Cortesia (brinde) exige a senha administrativa do evento.
+    const hasCourtesy = input.payments.some((p) => p.method === PaymentMethod.CORTESIA);
+    if (hasCourtesy) {
+      if (!input.adminPassword) {
+        throw new BadRequestException('Cortesia exige a senha administrativa do evento');
+      }
+      await this.adminPassword.assertValid(input.eventId, input.adminPassword);
     }
 
     // Processa pagamentos pela camada de abstração (Strategy).
