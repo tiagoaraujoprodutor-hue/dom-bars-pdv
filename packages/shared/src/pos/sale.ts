@@ -56,7 +56,6 @@ function money(value: string): string {
 /** Monta o cupom de pagamento (PLAN §6.12) como um PrintJob neutro de SDK. */
 export function buildReceipt(input: ReceiptInput): PrintJob {
   const lines: string[] = [];
-  lines.push(input.eventName);
   lines.push('CUPOM NAO FISCAL');
   if (input.dateTime) lines.push(input.dateTime);
   if (input.attendant) lines.push(`Atendente: ${input.attendant}`);
@@ -77,7 +76,8 @@ export function buildReceipt(input: ReceiptInput): PrintJob {
   }
   lines.push(`Venda: ${input.saleId}`);
 
-  return { kind: 'receipt', title: 'Comprovante', lines };
+  // Nome do evento vai no cabeçalho em destaque (topo, grande e centralizado).
+  return { kind: 'receipt', title: 'Comprovante', header: input.eventName, lines };
 }
 
 /** Ficha de produção/bar: o que preparar/entregar (sem valores). */
@@ -86,12 +86,13 @@ export function buildProductionTicket(
   items: ReceiptLine[],
   meta: TicketMeta = {},
 ): PrintJob {
-  const lines = [eventName, 'PRODUCAO / BAR'];
+  const lines = ['PRODUCAO / BAR'];
   if (meta.dateTime) lines.push(meta.dateTime);
   if (meta.attendant) lines.push(`Atendente: ${meta.attendant}`);
   lines.push('--------------------------------');
   for (const item of items) {
     lines.push(`${item.quantity}x ${item.name}`);
   }
-  return { kind: 'production', title: 'Ficha de Produção', lines };
+  // Nome do evento em destaque no topo da ficha (evita confusão/fraude entre eventos).
+  return { kind: 'production', title: 'Ficha de Produção', header: eventName, lines };
 }

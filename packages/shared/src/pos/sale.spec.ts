@@ -15,6 +15,9 @@ describe('buildReceipt', () => {
     });
 
     expect(job.kind).toBe('receipt');
+    // Nome do evento vai no cabeçalho em DESTAQUE (não em linha comum de corpo).
+    expect(job.header).toBe('Festa Demo');
+    expect(job.lines).not.toContain('Festa Demo');
     expect(job.lines).toContain('2x Caipirinha');
     expect(job.lines).toContain('Taxa de servico: R$ 3.60');
     expect(job.lines).toContain('TOTAL: R$ 39.60');
@@ -43,6 +46,7 @@ describe('buildReceipt', () => {
       { attendant: 'Maria', dateTime: '15/07/2026 22:30' },
     );
     expect(job.kind).toBe('production');
+    expect(job.header).toBe('Festa');
     expect(job.lines).toContain('3x Caipirinha');
     expect(job.lines).toContain('Atendente: Maria');
     expect(job.lines.some((l) => l.includes('R$'))).toBe(false);

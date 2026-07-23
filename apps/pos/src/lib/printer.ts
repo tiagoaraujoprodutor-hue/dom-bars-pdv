@@ -12,7 +12,8 @@ class NativePrinter implements Printer {
   }
 
   print(job: PrintJob): Promise<void> {
-    return Smart2.printLines(job.lines);
+    // Nome do evento (job.header) vai em destaque no topo; o corpo em texto normal.
+    return Smart2.printDoc(job.header ?? '', job.lines);
   }
 }
 
