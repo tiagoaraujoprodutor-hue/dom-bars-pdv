@@ -1,7 +1,6 @@
 import { LossType } from '@prisma/client';
 import { z } from 'zod';
-
-const money = z.union([z.number(), z.string()]);
+import { moneySchema as money } from '../common/money';
 
 export const createLossSchema = z
   .object({

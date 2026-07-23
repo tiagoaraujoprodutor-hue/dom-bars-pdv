@@ -67,7 +67,15 @@ export class SqliteOutboxStore implements OutboxStore {
 
   async pending(): Promise<OutboxItem[]> {
     const rows = await this.database.getAllAsync<Row>(
-      `SELECT * FROM outbox WHERE status != 'synced' ORDER BY createdAt ASC`,
+      `SELECT * FROM outbox WHERE status = 'pending' ORDER BY createdAt ASC`,
+    );
+    return rows.map((r) => this.toItem(r));
+  }
+
+  /** Itens em erro terminal (não-retentável) — para exibir/alertar o operador. */
+  async errored(): Promise<OutboxItem[]> {
+    const rows = await this.database.getAllAsync<Row>(
+      `SELECT * FROM outbox WHERE status = 'error' ORDER BY createdAt ASC`,
     );
     return rows.map((r) => this.toItem(r));
   }

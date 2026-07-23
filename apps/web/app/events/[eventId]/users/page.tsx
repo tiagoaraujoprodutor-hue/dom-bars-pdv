@@ -17,6 +17,7 @@ export default function UsersPage({ params }: { params: Promise<{ eventId: strin
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('OPERADOR');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   function reload() {
     api<Membership[]>(`/events/${eventId}/users`)
@@ -28,7 +29,9 @@ export default function UsersPage({ params }: { params: Promise<{ eventId: strin
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
     setError('');
+    setSaving(true);
     try {
       await api(`/events/${eventId}/users`, {
         method: 'POST',
@@ -40,6 +43,8 @@ export default function UsersPage({ params }: { params: Promise<{ eventId: strin
       reload();
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -74,7 +79,9 @@ export default function UsersPage({ params }: { params: Promise<{ eventId: strin
               <option value="ADMINISTRADOR">Administrador</option>
             </select>
           </div>
-          <button type="submit">Cadastrar</button>
+          <button type="submit" disabled={saving}>
+            {saving ? 'Salvando…' : 'Cadastrar'}
+          </button>
         </form>
         {error && <div className="error">{error}</div>}
 

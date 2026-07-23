@@ -40,6 +40,14 @@ export class SyncEngine {
   }
 
   /**
+   * Quantos itens estão em erro TERMINAL (não-retentável) — precisam de atenção
+   * manual (ex.: uma venda rejeitada por validação). Não somem: ficam auditáveis.
+   */
+  async erroredCount(): Promise<number> {
+    return (await this.store.all()).filter((i) => i.status === 'error').length;
+  }
+
+  /**
    * Tenta enviar todos os itens pendentes. Single-flight: chamadas concorrentes
    * não duplicam envios. Itens com falha transitória continuam pending.
    */

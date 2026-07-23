@@ -17,7 +17,7 @@ export class InMemoryOutboxStore implements OutboxStore {
 
   pending(): Promise<OutboxItem[]> {
     const list = [...this.items.values()]
-      .filter((i) => i.status !== 'synced')
+      .filter((i) => i.status === 'pending')
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     return Promise.resolve(list);
   }

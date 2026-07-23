@@ -1,6 +1,5 @@
 import { z } from 'zod';
-
-const money = z.union([z.number(), z.string()]);
+import { moneySchema as money } from '../common/money';
 
 export const createCourtesySchema = z.object({
   beneficiary: z.string().min(1, 'Beneficiário obrigatório'),

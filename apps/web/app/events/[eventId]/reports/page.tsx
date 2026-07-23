@@ -49,6 +49,7 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
   const [error, setError] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [closeResult, setCloseResult] = useState('');
+  const [busy, setBusy] = useState(false);
   const [cpf, setCpf] = useState('');
   const [closing, setClosing] = useState<AttendantClosing[] | null>(null);
   const [fin, setFin] = useState<FinancialSummary | null>(null);
@@ -85,8 +86,10 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
   }
 
   async function closeAllCash() {
+    if (busy) return;
     setError('');
     setCloseResult('');
+    setBusy(true);
     try {
       const r = await api<{ closed: number }>(`/events/${eventId}/cash-registers/close-all`, {
         method: 'POST',
@@ -95,13 +98,17 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
       setCloseResult(`${r.closed} caixa(s) fechado(s).`);
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function closeEvent(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setError('');
     setCloseResult('');
+    setBusy(true);
     try {
       const res = await api<{ consolidacao: { faturamentoBruto: string; totalVendas: number } }>(
         `/events/${eventId}/close`,
@@ -113,6 +120,8 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
       setAdminPassword('');
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -257,10 +266,12 @@ export default function ReportsPage({ params }: { params: Promise<{ eventId: str
                 required
               />
             </div>
-            <button type="button" className="secondary" onClick={closeAllCash}>
-              Fechar todos os caixas
+            <button type="button" className="secondary" onClick={closeAllCash} disabled={busy}>
+              {busy ? 'Processando…' : 'Fechar todos os caixas'}
             </button>
-            <button type="submit">Encerrar evento</button>
+            <button type="submit" disabled={busy}>
+              {busy ? 'Processando…' : 'Encerrar evento'}
+            </button>
             <button type="button" className="secondary" onClick={() => download('general')}>
               Ver relatório geral
             </button>

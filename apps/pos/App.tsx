@@ -5,6 +5,7 @@ import {
   type ReceiptLine,
   type SalePayload,
 } from '@dom-bars/shared';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
@@ -29,6 +30,7 @@ export default function App() {
   const [event, setEvent] = useState<EventItem | null>(null);
   const [tab, setTab] = useState<Tab>('sale');
   const [pending, setPending] = useState(0);
+  const [errored, setErrored] = useState(0);
   const [ready, setReady] = useState(false);
   const [cashOpen, setCashOpen] = useState<boolean | null>(null);
 
@@ -50,6 +52,7 @@ export default function App() {
       if (cancelled) return;
       engineRef.current = new SyncEngine(store, createSaleSender(event.id));
       setPending(await engineRef.current.pendingCount());
+      setErrored(await engineRef.current.erroredCount());
       setReady(true);
     })().catch(() => undefined);
     return () => {
@@ -57,15 +60,30 @@ export default function App() {
     };
   }, [event]);
 
-  // Verifica se o atendente já tem caixa aberto neste evento.
+  // Verifica se o atendente já tem caixa aberto neste evento. Se estiver SEM rede,
+  // assume o último estado conhecido (persistido localmente) em vez de forçar
+  // "sem caixa" — assim quem já abriu o caixa não fica travado no cold-start offline.
   useEffect(() => {
     if (!event) {
       setCashOpen(null);
       return;
     }
+    const key = `cashOpen:${event.id}`;
+    let active = true;
     api<unknown>(`/events/${event.id}/cash-registers/current`)
-      .then((r) => setCashOpen(r != null))
-      .catch(() => setCashOpen(false));
+      .then((r) => {
+        if (!active) return;
+        const open = r != null;
+        setCashOpen(open);
+        AsyncStorage.setItem(key, open ? '1' : '0').catch(() => undefined);
+      })
+      .catch(async () => {
+        const saved = await AsyncStorage.getItem(key).catch(() => null);
+        if (active) setCashOpen(saved === '1');
+      });
+    return () => {
+      active = false;
+    };
   }, [event]);
 
   // Drena a fila quando há conexão.
@@ -75,38 +93,61 @@ export default function App() {
       .flush()
       .then(() => engineRef.current?.pendingCount())
       .then((count) => setPending(count ?? 0))
+      .then(() => engineRef.current?.erroredCount())
+      .then((e) => setErrored(e ?? 0))
       .catch(() => undefined);
   }, [online, ready]);
+
+  // Retentativa periódica enquanto houver itens na fila: mesmo que o sinal de
+  // "online" não oscile, tenta esvaziar a fila a cada 15s (rede pode ter voltado).
+  useEffect(() => {
+    if (!ready || pending === 0) return;
+    const id = setInterval(() => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      engine
+        .flush()
+        .then(() => engine.pendingCount())
+        .then((count) => setPending(count ?? 0))
+        .then(() => engine.erroredCount())
+        .then((e) => setErrored(e ?? 0))
+        .catch(() => undefined);
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [ready, pending]);
 
   const onCheckout = useCallback(
     async (payload: SalePayload, receiptLines: ReceiptLine[]): Promise<{ offline: boolean }> => {
       const engine = engineRef.current;
       if (!engine) throw new Error('Sincronização não iniciada');
 
-      // Imprime comprovante (cliente) + ficha do bar (retirada). Best-effort.
+      // Imprime comprovante (cliente) + ficha do bar (retirada). Best-effort e
+      // com TIMEOUT: se a térmica travar/ficar sem papel, a impressão é abandonada
+      // em 5s e o checkout NUNCA congela (a venda já está garantida no outbox).
       const printReceipts = async (): Promise<void> => {
         const total = payload.payments.reduce((a, p) => a + Number(p.amount), 0).toFixed(2);
         const eventName = event?.name ?? 'Evento';
         const attendant = user?.name;
         const dateTime = new Date().toLocaleString('pt-BR');
-        await printer
-          .print(
-            buildReceipt({
-              eventName,
-              saleId: payload.clientId,
-              items: receiptLines,
-              subtotal: total,
-              serviceFee: '0.00',
-              total,
-              payments: payload.payments,
-              attendant,
-              dateTime,
-            }),
-          )
-          .catch(() => undefined);
-        await printer
-          .print(buildProductionTicket(eventName, receiptLines, { attendant, dateTime }))
-          .catch(() => undefined);
+        const printSafe = (job: Parameters<typeof printer.print>[0]): Promise<void> =>
+          Promise.race([
+            printer.print(job).catch(() => undefined),
+            new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+          ]).then(() => undefined);
+        await printSafe(
+          buildReceipt({
+            eventName,
+            saleId: payload.clientId,
+            items: receiptLines,
+            subtotal: total,
+            serviceFee: '0.00',
+            total,
+            payments: payload.payments,
+            attendant,
+            dateTime,
+          }),
+        );
+        await printSafe(buildProductionTicket(eventName, receiptLines, { attendant, dateTime }));
       };
 
       // Cortesia (tem senha admin): vai DIRETO ao servidor, que valida a senha na
@@ -126,6 +167,7 @@ export default function App() {
       // 2) Sincroniza agora se houver rede.
       if (online) await engine.flush();
       setPending(await engine.pendingCount());
+      setErrored(await engine.erroredCount());
 
       // 3) Imprime.
       await printReceipts();
@@ -169,7 +211,10 @@ export default function App() {
           <OpenCashScreen
             eventId={event.id}
             eventName={event.name}
-            onOpened={() => setCashOpen(true)}
+            onOpened={() => {
+              setCashOpen(true);
+              AsyncStorage.setItem(`cashOpen:${event.id}`, '1').catch(() => undefined);
+            }}
           />
         ) : null}
       </SafeAreaView>
@@ -181,7 +226,13 @@ export default function App() {
       <StatusBar style="light" />
       <View style={{ flex: 1 }}>
         {tab === 'sale' ? (
-          <SaleScreen eventId={event.id} online={online} pending={pending} onCheckout={onCheckout} />
+          <SaleScreen
+            eventId={event.id}
+            online={online}
+            pending={pending}
+            errored={errored}
+            onCheckout={onCheckout}
+          />
         ) : tab === 'tabs' ? (
           <TabsScreen eventId={event.id} />
         ) : (

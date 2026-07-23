@@ -159,10 +159,18 @@ export class SalesService {
         });
 
         if (input.tabId) {
-          await tx.tab.update({
-            where: { id: input.tabId },
+          // Fecha a comanda de forma ATÔMICA e CONDICIONAL (só se ainda ABERTA).
+          // Se duas máquinas tentam fechar a mesma comanda ao mesmo tempo, apenas
+          // uma vence — a outra recebe 409 e NÃO gera segunda venda (evita cobrança
+          // em dobro). A idempotência por clientId cobre reenvios da mesma máquina;
+          // esta trava cobre máquinas diferentes fechando a mesma comanda.
+          const closed = await tx.tab.updateMany({
+            where: { id: input.tabId, status: 'ABERTA' },
             data: { status: 'FECHADA', closedAt: new Date() },
           });
+          if (closed.count === 0) {
+            throw new ConflictException('Comanda já foi fechada por outra máquina');
+          }
         }
 
         // Baixa de estoque/insumos por último (menor janela de trava). Se faltar

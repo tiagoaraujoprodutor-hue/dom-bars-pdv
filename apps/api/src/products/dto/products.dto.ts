@@ -1,6 +1,5 @@
 import { z } from 'zod';
-
-const money = z.union([z.number(), z.string()]);
+import { moneySchema as money } from '../../common/money';
 
 export const createCategorySchema = z.object({ name: z.string().min(1) });
 export type CreateCategoryDto = z.infer<typeof createCategorySchema>;

@@ -22,6 +22,7 @@ export default function ProductsPage({ params }: { params: Promise<{ eventId: st
   const [cost, setCost] = useState('');
   const [stock, setStock] = useState('0');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   function reload() {
     api<Product[]>(`/events/${eventId}/products`)
@@ -33,7 +34,9 @@ export default function ProductsPage({ params }: { params: Promise<{ eventId: st
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
     setError('');
+    setSaving(true);
     try {
       await api(`/events/${eventId}/products`, {
         method: 'POST',
@@ -46,6 +49,8 @@ export default function ProductsPage({ params }: { params: Promise<{ eventId: st
       reload();
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -71,7 +76,9 @@ export default function ProductsPage({ params }: { params: Promise<{ eventId: st
             <label>Estoque</label>
             <input type="number" value={stock} onChange={(e) => setStock(e.target.value)} />
           </div>
-          <button type="submit">Adicionar</button>
+          <button type="submit" disabled={saving}>
+            {saving ? 'Salvando…' : 'Adicionar'}
+          </button>
         </form>
         {error && <div className="error">{error}</div>}
 

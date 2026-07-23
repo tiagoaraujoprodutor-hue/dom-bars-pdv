@@ -25,7 +25,12 @@ export interface OutboxItem<T = unknown> {
 
 export interface OutboxStore {
   enqueue(item: OutboxItem): Promise<void>;
-  /** Itens ainda não confirmados (pending ou error reentrante). */
+  /**
+   * Itens a (re)enviar automaticamente: SOMENTE `status = 'pending'`. Itens em
+   * `error` (falha NÃO-retentável, ex.: validação 4xx) NÃO entram aqui — reenviá-los
+   * a cada flush só gastaria rede e manteria o badge "fila" travado sem nunca zerar.
+   * Eles continuam salvos (auditáveis) e são exibidos à parte para atenção manual.
+   */
   pending(): Promise<OutboxItem[]>;
   markSynced(id: string): Promise<void>;
   markError(id: string, error: string, retryable: boolean): Promise<void>;

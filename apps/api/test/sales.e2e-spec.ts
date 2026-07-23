@@ -381,4 +381,64 @@ describe('Núcleo operacional — ciclo de venda (e2e)', () => {
     const after = await prisma.ingredient.findUniqueOrThrow({ where: { id: LIMAO } });
     expect(Number(after.stock) - Number(before.stock)).toBe(-5);
   });
+
+  it('fechamento concorrente da MESMA comanda não cobra em dobro', async () => {
+    // Duas máquinas fecham a mesma comanda ao mesmo tempo (clientIds diferentes,
+    // então a idempotência por clientId NÃO cobre este caso). O fecho condicional
+    // da comanda garante que só uma venda seja criada.
+    const tab = await request(app.getHttpServer())
+      .post(`/events/${eventId}/tabs`)
+      .set(auth(operToken))
+      .send({});
+    expect(tab.status).toBe(201);
+    const tabId = tab.body.id as string;
+
+    await request(app.getHttpServer())
+      .post(`/events/${eventId}/tabs/${tabId}/items`)
+      .set(auth(operToken))
+      .send({ items: [{ productId: AGUA, quantity: 1 }] })
+      .expect(201);
+
+    const close = (clientId: string) =>
+      request(app.getHttpServer())
+        .post(`/events/${eventId}/tabs/${tabId}/close`)
+        .set(auth(operToken))
+        .send({ clientId, payments: [{ method: PaymentMethod.PIX, amount: '11.00' }] });
+
+    const [a, b] = await Promise.all([close(randomUUID()), close(randomUUID())]);
+    const statuses = [a.status, b.status].sort();
+    // Exatamente um 201 (criou a venda) e um 409 (comanda já fechada).
+    expect(statuses).toEqual([201, 409]);
+
+    // E há SÓ UMA venda associada à comanda (não houve cobrança em dobro).
+    const sales = await prisma.sale.count({ where: { tabId } });
+    expect(sales).toBe(1);
+
+    const reloaded = await prisma.tab.findUniqueOrThrow({ where: { id: tabId } });
+    expect(reloaded.status).toBe('FECHADA');
+  });
+
+  it('valor monetário inválido vira 400 (não 500)', async () => {
+    // Texto não numérico não pode estourar o Decimal lá dentro (antes: 500).
+    const naoNumerico = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId: randomUUID(),
+        items: [{ productId: AGUA, quantity: 1 }],
+        payments: [{ method: PaymentMethod.DINHEIRO, amount: 'abc' }],
+      });
+    expect(naoNumerico.status).toBe(400);
+
+    // Valor negativo também é barrado na fronteira.
+    const negativo = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId: randomUUID(),
+        items: [{ productId: AGUA, quantity: 1 }],
+        payments: [{ method: PaymentMethod.DINHEIRO, amount: '-10.00' }],
+      });
+    expect(negativo.status).toBe(400);
+  });
 });

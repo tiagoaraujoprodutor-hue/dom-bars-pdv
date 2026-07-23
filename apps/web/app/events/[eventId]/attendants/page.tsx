@@ -35,6 +35,7 @@ export default function AttendantsPage({ params }: { params: Promise<{ eventId: 
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('OPERADOR');
   const [expiresAt, setExpiresAt] = useState('');
+  const [saving, setSaving] = useState(false);
 
   function reload() {
     api<Attendant[]>(`/events/${eventId}/attendants`)
@@ -46,7 +47,9 @@ export default function AttendantsPage({ params }: { params: Promise<{ eventId: 
 
   async function create(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
     setError('');
+    setSaving(true);
     try {
       await api(`/events/${eventId}/attendants`, {
         method: 'POST',
@@ -59,6 +62,8 @@ export default function AttendantsPage({ params }: { params: Promise<{ eventId: 
       reload();
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -113,7 +118,9 @@ export default function AttendantsPage({ params }: { params: Promise<{ eventId: 
             <label>Validade (opcional)</label>
             <input type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
           </div>
-          <button type="submit">Cadastrar</button>
+          <button type="submit" disabled={saving}>
+            {saving ? 'Salvando…' : 'Cadastrar'}
+          </button>
         </form>
         {error && <div className="error">{error}</div>}
 
@@ -166,7 +173,16 @@ export default function AttendantsPage({ params }: { params: Promise<{ eventId: 
                             '',
                           );
                           if (d === null) return;
-                          patch(a.userId, { expiresAt: d ? new Date(d).toISOString() : null });
+                          if (!d.trim()) {
+                            patch(a.userId, { expiresAt: null });
+                            return;
+                          }
+                          const parsed = new Date(d);
+                          if (isNaN(parsed.getTime())) {
+                            setError('Data inválida. Use o formato AAAA-MM-DD HH:MM (ex.: 2026-08-01 22:00).');
+                            return;
+                          }
+                          patch(a.userId, { expiresAt: parsed.toISOString() });
                         }}
                       >
                         Validade

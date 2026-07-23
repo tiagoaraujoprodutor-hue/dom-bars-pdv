@@ -1,5 +1,6 @@
 import { uuid, type PaymentMethod, type ReceiptLine, type SalePayload } from '@dom-bars/shared';
-import { useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -31,11 +32,13 @@ export function SaleScreen({
   eventId,
   online,
   pending,
+  errored = 0,
   onCheckout,
 }: {
   eventId: string;
   online: boolean;
   pending: number;
+  errored?: number;
   onCheckout: (
     payload: SalePayload,
     receiptLines: ReceiptLine[],
@@ -44,7 +47,14 @@ export function SaleScreen({
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<Record<string, CartLine>>({});
   const [paying, setPaying] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  // Guarda síncrono contra toque-duplo (o state é assíncrono demais p/ isso).
+  const processingRef = useRef(false);
+  // clientId ESTÁVEL por carrinho: reusado em retentativas (só muda após a venda
+  // concluir). Evita duplicar venda/cortesia se o operador tocar de novo depois de
+  // uma falha percebida (a chamada pode ter chegado ao servidor mesmo assim).
+  const clientIdRef = useRef(uuid());
   // Produto em edição de quantidade rápida (long-press no produto).
   const [qtyProduct, setQtyProduct] = useState<Product | null>(null);
   const [qtyValue, setQtyValue] = useState('');
@@ -52,11 +62,30 @@ export function SaleScreen({
   const [courtesyOpen, setCourtesyOpen] = useState(false);
   const [adminPw, setAdminPw] = useState('');
 
-  // Carrega o catálogo do evento. Em produção pode-se cachear localmente p/ offline.
+  // Carrega o catálogo do evento e o guarda localmente. Se estiver SEM rede no
+  // cold-start, usa o catálogo salvo (o operador continua vendendo offline).
   useEffect(() => {
-    api<Product[]>(`/events/${eventId}/products`)
-      .then(setProducts)
-      .catch((e) => setError((e as Error).message));
+    const cacheKey = `catalog:${eventId}`;
+    let active = true;
+    (async () => {
+      try {
+        const fresh = await api<Product[]>(`/events/${eventId}/products`);
+        if (!active) return;
+        setProducts(fresh);
+        AsyncStorage.setItem(cacheKey, JSON.stringify(fresh)).catch(() => undefined);
+      } catch (e) {
+        const cached = await AsyncStorage.getItem(cacheKey).catch(() => null);
+        if (!active) return;
+        if (cached) {
+          setProducts(JSON.parse(cached) as Product[]);
+        } else {
+          setError((e as Error).message);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, [eventId]);
 
   const total = useMemo(
@@ -110,9 +139,13 @@ export function SaleScreen({
   }
 
   async function pay(method: PaymentMethod, adminPassword?: string): Promise<void> {
+    // Guarda contra toque-duplo: se já estiver processando, ignora.
+    if (processingRef.current) return;
+    processingRef.current = true;
+    setProcessing(true);
     setError('');
     const payload: SalePayload = {
-      clientId: uuid(),
+      clientId: clientIdRef.current,
       machineId: 'smart2-terminal',
       items: lines.map((l) => ({ productId: l.product.id, quantity: l.qty })),
       payments: [{ method, amount: total.toFixed(2) }],
@@ -128,6 +161,7 @@ export function SaleScreen({
     const isCourtesy = method === 'CORTESIA';
     try {
       const res = await onCheckout(payload, receiptLines);
+      clientIdRef.current = uuid(); // próxima venda ganha um id novo
       clear();
       Alert.alert(
         isCourtesy ? 'Cortesia registrada' : res.offline ? 'Venda salva (offline)' : 'Venda concluída',
@@ -139,6 +173,9 @@ export function SaleScreen({
       );
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      processingRef.current = false;
+      setProcessing(false);
     }
   }
 
@@ -166,6 +203,11 @@ export function SaleScreen({
         <Text style={{ color: colors.muted }}>
           {online ? 'Online' : 'Offline'} · fila: {pending}
         </Text>
+        {errored > 0 ? (
+          <Text style={{ color: colors.danger, marginLeft: 8, fontWeight: '700' }}>
+            ⚠ {errored} com erro
+          </Text>
+        ) : null}
       </View>
 
       {!paying ? (
@@ -246,14 +288,19 @@ export function SaleScreen({
           {METHODS.map((m) => (
             <TouchableOpacity
               key={m}
-              style={[styles.button, { marginBottom: 10 }]}
+              style={[styles.button, { marginBottom: 10, opacity: processing ? 0.4 : 1 }]}
+              disabled={processing}
               onPress={() => pay(m)}
             >
-              <Text style={styles.buttonText}>{m}</Text>
+              <Text style={styles.buttonText}>{processing ? 'Processando…' : m}</Text>
             </TouchableOpacity>
           ))}
           {/* Cortesia (brinde) — pede a senha administrativa do evento. */}
-          <TouchableOpacity style={styles.courtesyButton} onPress={askCourtesyPassword}>
+          <TouchableOpacity
+            style={[styles.courtesyButton, { opacity: processing ? 0.4 : 1 }]}
+            disabled={processing}
+            onPress={askCourtesyPassword}
+          >
             <Text style={styles.courtesyText}>🎁 CORTESIA (brinde)</Text>
           </TouchableOpacity>
           <TouchableOpacity

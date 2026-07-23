@@ -1,7 +1,6 @@
 import { Role } from '@prisma/client';
 import { z } from 'zod';
-
-const money = z.union([z.number(), z.string()]);
+import { moneySchema as money } from '../common/money';
 
 export const createEventSchema = z.object({
   name: z.string().min(1),
