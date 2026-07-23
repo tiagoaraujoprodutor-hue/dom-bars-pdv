@@ -77,19 +77,21 @@ export class ProductsController {
   @Roles(Role.ADMINISTRADOR)
   createProduct(
     @EventScopeParam() scope: EventScope,
+    @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createProductSchema)) dto: CreateProductDto,
   ) {
-    return this.products.createProduct(scope.eventId, dto);
+    return this.products.createProduct(scope.eventId, user.userId, user.companyId, dto);
   }
 
   @Patch('products/:id')
   @Roles(Role.ADMINISTRADOR)
   updateProduct(
     @EventScopeParam() scope: EventScope,
+    @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Body(new ZodValidationPipe(updateProductSchema)) dto: UpdateProductDto,
   ) {
-    return this.products.updateProduct(scope.eventId, id, dto);
+    return this.products.updateProduct(scope.eventId, user.userId, user.companyId, id, dto);
   }
 
   @Post('ingredients')

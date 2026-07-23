@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { login, type AuthUser } from '../lib/auth';
+import { getDeviceId } from '../lib/device';
 import { styles } from '../theme';
 
 export function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) {
@@ -13,7 +14,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) 
     setError('');
     setLoading(true);
     try {
-      const user = await login(identifier, password, 'smart2-terminal');
+      const user = await login(identifier, password, await getDeviceId());
       onLogin(user);
     } catch (err) {
       setError((err as Error).message);

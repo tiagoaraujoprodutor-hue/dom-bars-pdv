@@ -50,12 +50,13 @@ export class ReportsService {
           columns: ['Item', 'Valor (R$)'],
           rows: [
             ['Abertura', fmt(summary.openingAmount)],
-            ['Vendas', fmt(summary.salesTotal)],
+            ['Vendas (total)', fmt(summary.salesTotal)],
+            ['Vendas em dinheiro', fmt(summary.cashSales)],
             ['Suprimentos', fmt(summary.suprimentos)],
             ['Sangrias', `-${fmt(summary.sangrias)}`],
             ['Fechamento informado', fmt(summary.closingAmount)],
           ],
-          total: ['Esperado em gaveta', fmt(summary.expectedInDrawer)],
+          total: ['Esperado em gaveta (dinheiro)', fmt(summary.expectedInDrawer)],
         },
         {
           heading: 'Movimentações',
@@ -231,11 +232,14 @@ export class ReportsService {
 
   /** Fechamento individual de um atendente (por operador). */
   async attendantClosing(eventId: string, userId: string): Promise<ReportSpec> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true, cpf: true },
+    // Só resolve o usuário SE ele for membro DESTE evento — evita vazar nome/CPF
+    // (PII/LGPD) de alguém de outra empresa/evento via um userId arbitrário na URL.
+    const membership = await this.prisma.eventMembership.findUnique({
+      where: { userId_eventId: { userId, eventId } },
+      select: { user: { select: { name: true, cpf: true } } },
     });
-    if (!user) throw new NotFoundException('Atendente não encontrado');
+    if (!membership) throw new NotFoundException('Atendente não encontrado');
+    const user = membership.user;
 
     const [agg] = await this.prisma.$queryRaw<{ vendas: bigint; total: Prisma.Decimal }[]>`
       SELECT COUNT(*) AS vendas, COALESCE(SUM(total), 0) AS total FROM "Sale"

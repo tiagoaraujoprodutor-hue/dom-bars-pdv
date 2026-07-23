@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { AdminPasswordService } from '../auth/admin-password.service';
 import { AuditService } from '../audit/audit.service';
 import { dec } from '../common/money';
 import { PrismaService } from '../prisma/prisma.service';
@@ -9,6 +10,7 @@ export class LossesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly adminPassword: AdminPasswordService,
   ) {}
 
   list(eventId: string) {
@@ -19,6 +21,8 @@ export class LossesService {
   }
 
   async register(eventId: string, userId: string, companyId: string, dto: CreateLossDto) {
+    // Baixa como perda tira mercadoria do estoque: exige senha admin (como sangria).
+    await this.adminPassword.assertValid(eventId, dto.adminPassword, { userId, companyId });
     const quantity = dec(dto.quantity);
     if (quantity.lessThanOrEqualTo(0)) {
       throw new BadRequestException('Quantidade deve ser maior que zero');

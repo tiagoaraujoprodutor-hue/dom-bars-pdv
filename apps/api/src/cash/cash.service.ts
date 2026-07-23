@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { CashMovementType, CashRegisterStatus } from '@prisma/client';
+import { CashMovementType, CashRegisterStatus, PaymentMethod } from '@prisma/client';
 import { AdminPasswordService } from '../auth/admin-password.service';
 import { AuditService } from '../audit/audit.service';
 import { dec, sum } from '../common/money';
@@ -45,7 +45,7 @@ export class CashService {
 
   async close(eventId: string, registerId: string, userId: string, companyId: string, dto: CloseCashDto) {
     // Fechamento de caixa é ação crítica: só admin, com senha administrativa.
-    await this.adminPassword.assertValid(eventId, dto.adminPassword);
+    await this.adminPassword.assertValid(eventId, dto.adminPassword, { userId, companyId });
     const register = await this.requireRegister(eventId, registerId);
     if (register.status === CashRegisterStatus.FECHADO) {
       throw new ConflictException('Caixa já está fechado');
@@ -72,7 +72,7 @@ export class CashService {
 
   /** Fecha TODOS os caixas abertos do evento (fim de evento). Só admin + senha admin. */
   async closeAll(eventId: string, userId: string, companyId: string, adminPassword: string) {
-    await this.adminPassword.assertValid(eventId, adminPassword);
+    await this.adminPassword.assertValid(eventId, adminPassword, { userId, companyId });
     const open = await this.prisma.cashRegister.findMany({
       where: { eventId, status: CashRegisterStatus.ABERTO },
     });
@@ -111,7 +111,7 @@ export class CashService {
     companyId: string,
     dto: CashMovementDto,
   ) {
-    await this.adminPassword.assertValid(eventId, dto.adminPassword);
+    await this.adminPassword.assertValid(eventId, dto.adminPassword, { userId, companyId });
     const register = await this.requireRegister(eventId, registerId);
     if (register.status !== CashRegisterStatus.ABERTO) {
       throw new ConflictException('Movimentação exige caixa aberto');
@@ -146,7 +146,7 @@ export class CashService {
       this.prisma.cashMovement.findMany({ where: { cashRegisterId: register.id } }),
       this.prisma.sale.findMany({
         where: { cashRegisterId: register.id, status: 'CONCLUIDA' },
-        select: { total: true },
+        select: { total: true, payments: { select: { method: true, amount: true } } },
       }),
     ]);
 
@@ -157,8 +157,16 @@ export class CashService {
       movements.filter((m) => m.type === CashMovementType.SANGRIA).map((m) => m.amount),
     );
     const salesTotal = sum(sales.map((s) => s.total));
+    // Só o que entra em ESPÉCIE conta para a gaveta. Cartão, PIX e cortesia NÃO
+    // caem no caixa físico — somá-los inflava o "esperado" e tornava impossível
+    // flagrar desvio de dinheiro (caixa 2). O esperado agora é dinheiro puro.
+    const cashSales = sum(
+      sales.flatMap((s) =>
+        s.payments.filter((p) => p.method === PaymentMethod.DINHEIRO).map((p) => p.amount),
+      ),
+    );
     const expected = dec(register.openingAmount)
-      .plus(salesTotal)
+      .plus(cashSales)
       .plus(suprimentos)
       .minus(sangrias);
 
@@ -168,6 +176,7 @@ export class CashService {
       openingAmount: register.openingAmount,
       closingAmount: register.closingAmount,
       salesTotal,
+      cashSales,
       suprimentos,
       sangrias,
       expectedInDrawer: expected,

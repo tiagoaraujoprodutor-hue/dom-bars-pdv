@@ -9,6 +9,8 @@ export const createLossSchema = z
     ingredientId: z.string().optional(),
     quantity: money,
     reason: z.string().min(3, 'Motivo obrigatório'),
+    /** Baixa de estoque como perda move mercadoria: exige a senha admin do evento. */
+    adminPassword: z.string().min(1, 'Senha administrativa obrigatória'),
   })
   .refine((d) => Boolean(d.productId) !== Boolean(d.ingredientId), {
     message: 'Informe exatamente um alvo: produto OU insumo',

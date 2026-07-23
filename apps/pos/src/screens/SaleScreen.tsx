@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { api } from '../lib/api';
+import { getDeviceId } from '../lib/device';
 import { colors, styles } from '../theme';
 
 interface Product {
@@ -55,6 +56,15 @@ export function SaleScreen({
   // concluir). Evita duplicar venda/cortesia se o operador tocar de novo depois de
   // uma falha percebida (a chamada pode ter chegado ao servidor mesmo assim).
   const clientIdRef = useRef(uuid());
+  // machineId único do aparelho (rastreio por terminal).
+  const deviceIdRef = useRef('');
+  useEffect(() => {
+    getDeviceId()
+      .then((id) => {
+        deviceIdRef.current = id;
+      })
+      .catch(() => undefined);
+  }, []);
   // Produto em edição de quantidade rápida (long-press no produto).
   const [qtyProduct, setQtyProduct] = useState<Product | null>(null);
   const [qtyValue, setQtyValue] = useState('');
@@ -146,7 +156,7 @@ export function SaleScreen({
     setError('');
     const payload: SalePayload = {
       clientId: clientIdRef.current,
-      machineId: 'smart2-terminal',
+      machineId: deviceIdRef.current || undefined,
       items: lines.map((l) => ({ productId: l.product.id, quantity: l.qty })),
       payments: [{ method, amount: total.toFixed(2) }],
       ...(adminPassword ? { adminPassword } : {}),

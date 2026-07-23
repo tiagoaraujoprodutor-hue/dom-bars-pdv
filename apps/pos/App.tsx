@@ -14,7 +14,7 @@ import { useOnline } from './src/lib/network';
 import { printer } from './src/lib/printer';
 import { createSaleSender } from './src/lib/sale-sender';
 import { SqliteOutboxStore } from './src/lib/sqlite-outbox';
-import { api } from './src/lib/api';
+import { api, ApiError } from './src/lib/api';
 import { EventPickerScreen, type EventItem } from './src/screens/EventPickerScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { OpenCashScreen } from './src/screens/OpenCashScreen';
@@ -160,19 +160,40 @@ export default function App() {
         return { offline: false };
       }
 
-      // Fluxo normal (offline-first): 1) persiste durável (nunca perde a venda).
+      // Fluxo normal. Regra antifraude: a MERCADORIA (ficha do bar) só sai depois
+      // de a venda ser garantida — nunca imprime uma ficha que o servidor recusou.
+      if (online && event) {
+        // ONLINE: envia direto e só imprime se o servidor ACEITAR. Recusa
+        // definitiva (sem caixa, produto inválido, total divergente…) NÃO imprime.
+        try {
+          await api(`/events/${event.id}/sales`, { method: 'POST', body: payload });
+        } catch (err) {
+          const status = (err as ApiError).status;
+          const recusaDefinitiva =
+            typeof status === 'number' &&
+            status >= 400 &&
+            status < 500 &&
+            status !== 401 && // sessão: não é recusa de venda
+            status !== 408 &&
+            status !== 429;
+          if (recusaDefinitiva) throw err; // não imprime: mercadoria não sai sem venda
+          // Falha transitória (rede caiu, 5xx, sessão): preserva na fila durável
+          // (nunca perde a venda) e imprime — vai sincronizar (idempotente por clientId).
+          await engine.enqueue('sale', payload, payload.clientId);
+          setPending(await engine.pendingCount());
+          await printReceipts();
+          return { offline: true };
+        }
+        await printReceipts();
+        return { offline: false };
+      }
+
+      // OFFLINE: 1) persiste durável (nunca perde a venda) e 2) imprime (sincroniza
+      // depois; o servidor recalcula o preço e não aceita adulteração).
       await engine.enqueue('sale', payload, payload.clientId);
       setPending(await engine.pendingCount());
-
-      // 2) Sincroniza agora se houver rede.
-      if (online) await engine.flush();
-      setPending(await engine.pendingCount());
-      setErrored(await engine.erroredCount());
-
-      // 3) Imprime.
       await printReceipts();
-
-      return { offline: !online };
+      return { offline: true };
     },
     [online, event, user],
   );

@@ -70,9 +70,13 @@ export class SalesController {
   @Post('manage')
   async manage(
     @EventScopeParam() scope: EventScope,
+    @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(manageSchema)) dto: ManageDto,
   ) {
-    await this.adminPassword.assertValid(scope.eventId, dto.adminPassword);
+    await this.adminPassword.assertValid(scope.eventId, dto.adminPassword, {
+      userId: user.userId,
+      companyId: user.companyId,
+    });
     return this.sales.listSalesManaged(scope.eventId);
   }
 
@@ -84,7 +88,10 @@ export class SalesController {
     @Param('id') id: string,
     @Body(new ZodValidationPipe(manageSchema)) dto: ManageDto,
   ) {
-    await this.adminPassword.assertValid(scope.eventId, dto.adminPassword);
+    await this.adminPassword.assertValid(scope.eventId, dto.adminPassword, {
+      userId: user.userId,
+      companyId: user.companyId,
+    });
     return this.sales.reprint(scope.eventId, id, user.userId, user.companyId);
   }
 

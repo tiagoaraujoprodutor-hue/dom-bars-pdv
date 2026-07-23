@@ -21,6 +21,9 @@ export class AuthController {
     private readonly prisma: PrismaService,
   ) {}
 
+  // Obs.: NÃO limitamos login por IP — num evento, 60 terminais dividem o mesmo
+  // NAT e logam no início do turno; um teto por IP barraria a operação real. A
+  // defesa contra força-bruta da senha admin é por evento (AdminPasswordService).
   @Post('login')
   @HttpCode(200)
   login(@Body(new ZodValidationPipe(loginSchema)) dto: LoginDto) {

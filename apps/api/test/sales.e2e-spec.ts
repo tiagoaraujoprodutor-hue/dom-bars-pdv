@@ -375,7 +375,13 @@ describe('Núcleo operacional — ciclo de venda (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post(`/events/${eventId}/losses`)
       .set(auth(adminToken))
-      .send({ type: 'QUEBRA', ingredientId: LIMAO, quantity: '5', reason: 'caiu no chão' });
+      .send({
+        type: 'QUEBRA',
+        ingredientId: LIMAO,
+        quantity: '5',
+        reason: 'caiu no chão',
+        adminPassword: ADMIN_PASSWORD,
+      });
     expect(res.status).toBe(201);
 
     const after = await prisma.ingredient.findUniqueOrThrow({ where: { id: LIMAO } });
@@ -440,5 +446,77 @@ describe('Núcleo operacional — ciclo de venda (e2e)', () => {
         payments: [{ method: PaymentMethod.DINHEIRO, amount: '-10.00' }],
       });
     expect(negativo.status).toBe(400);
+  });
+
+  it('reusar clientId com conteúdo diferente é recusado (409)', async () => {
+    const clientId = randomUUID();
+    const first = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId,
+        items: [{ productId: AGUA, quantity: 1 }],
+        payments: [{ method: PaymentMethod.DINHEIRO, amount: '10.00' }],
+      });
+    expect(first.status).toBe(201);
+
+    // Mesmo clientId, itens DIFERENTES → 409 (não colapsa duas entregas em uma).
+    const diverge = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId,
+        items: [{ productId: AGUA, quantity: 5 }],
+        payments: [{ method: PaymentMethod.DINHEIRO, amount: '50.00' }],
+      });
+    expect(diverge.status).toBe(409);
+
+    // Mesmo clientId, MESMO conteúdo → idempotente (devolve a venda original).
+    const igual = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId,
+        items: [{ productId: AGUA, quantity: 1 }],
+        payments: [{ method: PaymentMethod.DINHEIRO, amount: '10.00' }],
+      });
+    expect(igual.status).toBe(201);
+    expect(igual.body.id).toBe(first.body.id);
+  });
+
+  it('registro de perda exige a senha administrativa', async () => {
+    // Sem a senha → 400 (obrigatória no schema).
+    const semSenha = await request(app.getHttpServer())
+      .post(`/events/${eventId}/losses`)
+      .set(auth(adminToken))
+      .send({ type: 'QUEBRA', ingredientId: LIMAO, quantity: '1', reason: 'sem senha' });
+    expect(semSenha.status).toBe(400);
+
+    // Senha errada → 403.
+    const errada = await request(app.getHttpServer())
+      .post(`/events/${eventId}/losses`)
+      .set(auth(adminToken))
+      .send({
+        type: 'QUEBRA',
+        ingredientId: LIMAO,
+        quantity: '1',
+        reason: 'senha errada',
+        adminPassword: 'errada',
+      });
+    expect(errada.status).toBe(403);
+  });
+
+  // DEVE SER O ÚLTIMO teste: dispara o bloqueio da senha admin do evento.
+  it('senha admin: bloqueia após tentativas repetidas (antifraude força-bruta)', async () => {
+    let bloqueou = false;
+    for (let i = 0; i < 8; i++) {
+      const r = await request(app.getHttpServer())
+        .post(`/events/${eventId}/sales/manage`)
+        .set(auth(operToken))
+        .send({ adminPassword: 'forca-bruta' });
+      if (r.status === 429) bloqueou = true;
+    }
+    // Depois de poucas tentativas erradas seguidas, passa a responder 429 (bloqueio).
+    expect(bloqueou).toBe(true);
   });
 });

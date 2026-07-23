@@ -28,8 +28,8 @@ export class ProductsService {
   }
 
   // ── Produtos ──
-  createProduct(eventId: string, dto: CreateProductDto) {
-    return this.prisma.product.create({
+  async createProduct(eventId: string, userId: string, companyId: string, dto: CreateProductDto) {
+    const product = await this.prisma.product.create({
       data: {
         eventId,
         name: dto.name,
@@ -40,6 +40,21 @@ export class ProductsService {
         minStock: dto.minStock,
       },
     });
+    // Preço é campo sensível a fraude (sub-cobrança/estorno). Auditar quem criou.
+    await this.audit.record({
+      action: 'PRODUCT_CREATE',
+      userId,
+      companyId,
+      eventId,
+      entity: 'Product',
+      entityId: product.id,
+      metadata: {
+        name: product.name,
+        price: product.price.toString(),
+        costPrice: product.costPrice.toString(),
+      },
+    });
+    return product;
   }
 
   listProducts(eventId: string) {
@@ -59,9 +74,15 @@ export class ProductsService {
     return product;
   }
 
-  async updateProduct(eventId: string, id: string, dto: UpdateProductDto) {
-    await this.getProduct(eventId, id);
-    return this.prisma.product.update({
+  async updateProduct(
+    eventId: string,
+    userId: string,
+    companyId: string,
+    id: string,
+    dto: UpdateProductDto,
+  ) {
+    const before = await this.getProduct(eventId, id);
+    const updated = await this.prisma.product.update({
       where: { id },
       data: {
         name: dto.name,
@@ -72,6 +93,27 @@ export class ProductsService {
         active: dto.active,
       },
     });
+    // Registra a mudança com valores ANTES/DEPOIS de preço e custo (rastro antifraude
+    // — impede baixar o preço, vender sub-cobrado e restaurar sem deixar trilha).
+    const priceChanged = dto.price !== undefined && !before.price.equals(updated.price);
+    const costChanged = dto.costPrice !== undefined && !before.costPrice.equals(updated.costPrice);
+    await this.audit.record({
+      action: 'PRODUCT_UPDATE',
+      userId,
+      companyId,
+      eventId,
+      entity: 'Product',
+      entityId: id,
+      metadata: {
+        priceChanged,
+        costChanged,
+        priceFrom: before.price.toString(),
+        priceTo: updated.price.toString(),
+        costFrom: before.costPrice.toString(),
+        costTo: updated.costPrice.toString(),
+      },
+    });
+    return updated;
   }
 
   // ── Insumos ──

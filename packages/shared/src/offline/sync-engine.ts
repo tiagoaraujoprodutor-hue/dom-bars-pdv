@@ -47,6 +47,11 @@ export class SyncEngine {
     return (await this.store.all()).filter((i) => i.status === 'error').length;
   }
 
+  /** Recupera um item da fila pelo id (clientId) — para consultar status/erro. */
+  getItem(id: string): Promise<OutboxItem | undefined> {
+    return this.store.get(id);
+  }
+
   /**
    * Tenta enviar todos os itens pendentes. Single-flight: chamadas concorrentes
    * não duplicam envios. Itens com falha transitória continuam pending.

@@ -63,7 +63,12 @@ export class SalesService {
       include: saleInclude,
     });
     if (existing) {
-      return existing; // idempotente
+      // Idempotência LIGADA AO CONTEÚDO: reenviar a MESMA venda devolve a original
+      // (offline-first). Mas reusar o clientId com itens/pagamentos DIFERENTES é
+      // recusado (409) — senão um clientId reutilizado colapsaria duas entregas
+      // distintas numa venda só (retirar 10, pagar 1). Ver auditoria antifraude.
+      this.assertSamePayload(existing, input);
+      return existing;
     }
 
     const register = await this.prisma.cashRegister.findFirst({
@@ -117,7 +122,10 @@ export class SalesService {
       if (!input.adminPassword) {
         throw new BadRequestException('Cortesia exige a senha administrativa do evento');
       }
-      await this.adminPassword.assertValid(input.eventId, input.adminPassword);
+      await this.adminPassword.assertValid(input.eventId, input.adminPassword, {
+        userId: input.operatorId,
+        companyId: input.companyId,
+      });
     }
 
     // Processa pagamentos pela camada de abstração (Strategy).
@@ -206,6 +214,34 @@ export class SalesService {
     return sale;
   }
 
+  /**
+   * Garante que um reenvio com o mesmo clientId traz EXATAMENTE o mesmo conteúdo
+   * (itens + pagamentos). Se divergir, é reuso indevido do identificador → 409.
+   */
+  private assertSamePayload(
+    existing: { items: { productId: string; quantity: number }[]; payments: { method: PaymentMethod; amount: Prisma.Decimal }[] },
+    input: FinalizeSaleInput,
+  ): void {
+    const itemsSig = (items: { productId: string; quantity: number }[]) =>
+      items
+        .map((i) => `${i.productId}:${i.quantity}`)
+        .sort()
+        .join('|');
+    const paySig = (ps: { method: PaymentMethod; amount: DecimalInput }[]) =>
+      ps
+        .map((p) => `${p.method}:${dec(p.amount).toFixed(2)}`)
+        .sort()
+        .join('|');
+
+    const sameItems = itemsSig(existing.items) === itemsSig(input.lines);
+    const samePayments = paySig(existing.payments) === paySig(input.payments);
+    if (!sameItems || !samePayments) {
+      throw new ConflictException(
+        'Já existe uma venda com este identificador e conteúdo diferente (clientId reutilizado).',
+      );
+    }
+  }
+
   listSales(eventId: string) {
     return this.prisma.sale.findMany({
       where: { eventId },
@@ -287,7 +323,7 @@ export class SalesService {
 
   /** Cancelamento/estorno: somente admin + senha admin. Estorna estoque e gera Refund. */
   async cancel(eventId: string, saleId: string, userId: string, companyId: string, dto: CancelSaleDto) {
-    await this.adminPassword.assertValid(eventId, dto.adminPassword);
+    await this.adminPassword.assertValid(eventId, dto.adminPassword, { userId, companyId });
 
     const sale = await this.prisma.sale.findFirst({
       where: { id: saleId, eventId },
@@ -298,21 +334,38 @@ export class SalesService {
       throw new ConflictException('Venda já está cancelada');
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await this.inventory.revertConsumption(
-        tx,
-        sale.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-      );
-      await tx.sale.update({ where: { id: sale.id }, data: { status: 'CANCELADA' } });
-      await tx.refund.create({
-        data: {
-          saleId: sale.id,
-          reason: dto.reason,
-          amount: sale.total,
-          responsibleId: userId,
-        },
+    await this.prisma
+      .$transaction(async (tx) => {
+        // Cancelamento CONDICIONAL: só vira CANCELADA se ainda estava CONCLUIDA.
+        // Dois cancelamentos simultâneos → só um vence; o outro recebe 409 (e não
+        // estorna estoque duas vezes nem gera reembolso duplo).
+        const changed = await tx.sale.updateMany({
+          where: { id: sale.id, status: 'CONCLUIDA' },
+          data: { status: 'CANCELADA' },
+        });
+        if (changed.count === 0) {
+          throw new ConflictException('Venda já está cancelada');
+        }
+        await this.inventory.revertConsumption(
+          tx,
+          sale.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        );
+        await tx.refund.create({
+          data: {
+            saleId: sale.id,
+            reason: dto.reason,
+            amount: sale.total,
+            responsibleId: userId,
+          },
+        });
+      })
+      .catch((error: unknown) => {
+        // Corrida no reembolso (Refund.saleId @unique): trata como 409, não 500.
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new ConflictException('Venda já está cancelada');
+        }
+        throw error;
       });
-    });
 
     await this.audit.record({
       action: 'SALE_REFUND',

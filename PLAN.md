@@ -298,3 +298,45 @@ e alterações críticas. Toda ação → auditoria.
 | Impressão falhando no evento | Fila resiliente (BullMQ online / fila local offline) + plano B no checklist |
 | Operação difícil sob pressão | UI 2–3 toques, indicador online/offline, seed realista, wizard de evento |
 ```
+
+---
+
+## 11. Auditoria antifraude (rodada 2026-07) — decisões
+
+Auditoria de ponta a ponta pensando como quem tentaria desviar dinheiro/mercadoria.
+O núcleo já era sólido (preço congelado no servidor — sem sub-cobrança; valores
+negativos/NaN barrados; idempotência por `clientId`; escopo por evento/empresa;
+auditoria append-only; ações críticas com senha admin + trilha). Correções aplicadas:
+
+- **Senha admin era o único portão e sem proteção de força-bruta** → bloqueio por
+  evento com backoff exponencial + auditoria de cada tentativa falha
+  (`ADMIN_PASSWORD_FAIL`). NÃO limitamos login por IP de propósito (60 terminais
+  dividem o NAT do evento). *(AdminPasswordService)*
+- **Ficha (mercadoria) saía mesmo quando o servidor recusava a venda online** →
+  venda online agora vai direto ao servidor e só imprime se ACEITA; recusa
+  definitiva não imprime. Offline segue durável (nunca perde; servidor recalcula
+  preço). *(App.tsx)*
+- **`clientId` reusado com conteúdo diferente colapsava duas entregas em uma venda**
+  → idempotência ligada ao conteúdo: reenvio idêntico = idempotente; divergente = 409.
+- **Conciliação de caixa somava cartão/PIX como dinheiro** → "esperado em gaveta"
+  passa a contar só DINHEIRO (+ suprimentos − sangrias). *(CashService.summary)*
+- **`machineId` fixo em todos os aparelhos** → id único por terminal (rastreio).
+- **Perda de estoque sem senha admin** → passa a exigir senha admin (como sangria).
+- **Preço de produto alterado sem trilha** → auditoria `PRODUCT_CREATE`/`PRODUCT_UPDATE`
+  (antes/depois de preço e custo).
+- **Relatório de atendente vazava nome/CPF de outro evento** → resolve só por membro
+  do evento (LGPD).
+- **Cancelamento concorrente virava 500** → cancelamento condicional + P2002 → 409.
+
+### Endurecimento ainda pendente (roadmap antifraude)
+- **Sequência monotônica por terminal + conciliação server-side** para detectar
+  vendas offline nunca sincronizadas (hoje a detecção depende de contagem física de
+  estoque). Exigir fila drenada antes de fechar o caixa.
+- **Bloqueio do terminal (PIN/biometria)** e revogação de sessão server-side (terminal
+  roubado).
+- **Pagamento `CORTESIA` deve gerar registro `Courtesy`** (beneficiário + motivo) para
+  aparecer no relatório de cortesias e sair do faturamento.
+- **Segredos**: exigir tamanho mínimo forte de `JWT_SECRET`/`JWT_REFRESH_SECRET` e
+  senha admin forte em produção (hoje mín. 8 / placeholders passam na validação).
+- **Bloqueio da senha admin em memória** (single-instance) → migrar para armazenamento
+  compartilhado (Redis) ao escalar horizontalmente.
