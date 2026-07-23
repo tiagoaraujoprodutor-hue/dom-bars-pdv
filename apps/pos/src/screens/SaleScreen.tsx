@@ -1,4 +1,10 @@
-import { uuid, type PaymentMethod, type ReceiptLine, type SalePayload } from '@dom-bars/shared';
+import {
+  uuid,
+  type PaymentMethod,
+  type ReceiptLine,
+  type SalePayload,
+  type SalePaymentInput,
+} from '@dom-bars/shared';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -71,6 +77,10 @@ export function SaleScreen({
   // Cortesia: modal da senha administrativa.
   const [courtesyOpen, setCourtesyOpen] = useState(false);
   const [adminPw, setAdminPw] = useState('');
+  // Pagamento dividido: parte em uma forma, parte em outra (crédito + pix, etc.).
+  const [splitMode, setSplitMode] = useState(false);
+  const [parts, setParts] = useState<SalePaymentInput[]>([]);
+  const [partValue, setPartValue] = useState('');
 
   // Carrega o catálogo do evento e o guarda localmente. Se estiver SEM rede no
   // cold-start, usa o catálogo salvo (o operador continua vendendo offline).
@@ -146,9 +156,14 @@ export function SaleScreen({
   function clear(): void {
     setCart({});
     setPaying(false);
+    setSplitMode(false);
+    setParts([]);
+    setPartValue('');
   }
 
-  async function pay(method: PaymentMethod, adminPassword?: string): Promise<void> {
+  // Fecha a venda com UMA OU MAIS formas de pagamento (dividido). O servidor exige
+  // que a soma feche com o total; a montagem das partes é validada aqui também.
+  async function submit(payments: SalePaymentInput[], adminPassword?: string): Promise<void> {
     // Guarda contra toque-duplo: se já estiver processando, ignora.
     if (processingRef.current) return;
     processingRef.current = true;
@@ -158,7 +173,7 @@ export function SaleScreen({
       clientId: clientIdRef.current,
       machineId: deviceIdRef.current || undefined,
       items: lines.map((l) => ({ productId: l.product.id, quantity: l.qty })),
-      payments: [{ method, amount: total.toFixed(2) }],
+      payments,
       ...(adminPassword ? { adminPassword } : {}),
     };
     // Linhas do cupom (nome/qtd/preço) — o comprovante lista os itens para
@@ -168,7 +183,7 @@ export function SaleScreen({
       quantity: l.qty,
       unitPrice: l.product.price,
     }));
-    const isCourtesy = method === 'CORTESIA';
+    const isCourtesy = payments.some((p) => p.method === 'CORTESIA');
     try {
       const res = await onCheckout(payload, receiptLines);
       clientIdRef.current = uuid(); // próxima venda ganha um id novo
@@ -187,6 +202,68 @@ export function SaleScreen({
       processingRef.current = false;
       setProcessing(false);
     }
+  }
+
+  /** Pagamento em forma única (fluxo rápido de sempre) — total inteiro numa forma. */
+  function pay(method: PaymentMethod, adminPassword?: string): Promise<void> {
+    return submit([{ method, amount: total.toFixed(2) }], adminPassword);
+  }
+
+  // ── Pagamento dividido ──
+  // Contas em centavos para não ter erro de ponto flutuante ao fechar o total.
+  const totalCents = Math.round(total * 100);
+  const paidCents = parts.reduce((a, p) => a + Math.round(Number(p.amount) * 100), 0);
+  const remainingCents = totalCents - paidCents;
+
+  function parseAmount(v: string): number {
+    const n = Number(v.replace(',', '.').replace(/[^0-9.]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function openSplit(): void {
+    setParts([]);
+    setError('');
+    setPartValue(total.toFixed(2));
+    setSplitMode(true);
+  }
+
+  function closeSplit(): void {
+    setSplitMode(false);
+    setParts([]);
+    setPartValue('');
+    setError('');
+  }
+
+  function addPart(method: PaymentMethod): void {
+    const remCents = totalCents - paidCents;
+    if (remCents <= 0) {
+      setError('Pagamento já está completo.');
+      return;
+    }
+    const amt = parseAmount(partValue);
+    if (amt <= 0) {
+      setError('Informe o valor desta parte.');
+      return;
+    }
+    // Nunca deixa passar do total — a última parte fecha exatamente o que falta.
+    const amtCents = Math.min(Math.round(amt * 100), remCents);
+    setError('');
+    setParts((prev) => [...prev, { method, amount: (amtCents / 100).toFixed(2) }]);
+    const newRem = remCents - amtCents;
+    setPartValue(newRem > 0 ? (newRem / 100).toFixed(2) : '');
+  }
+
+  function removePart(index: number): void {
+    setParts((prev) => prev.filter((_, i) => i !== index));
+    setError('');
+  }
+
+  function finalizeSplit(): void {
+    if (remainingCents !== 0) {
+      setError(`Falta R$ ${(remainingCents / 100).toFixed(2)} para fechar o total.`);
+      return;
+    }
+    void submit(parts);
   }
 
   // Cortesia: pede a senha administrativa do evento antes de registrar o brinde.
@@ -294,32 +371,120 @@ export function SaleScreen({
         </>
       ) : (
         <View style={{ flex: 1, justifyContent: 'center' }}>
-          <Text style={styles.title}>Pagamento · R$ {total.toFixed(2)}</Text>
-          {METHODS.map((m) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.button, { marginBottom: 10, opacity: processing ? 0.4 : 1 }]}
-              disabled={processing}
-              onPress={() => pay(m)}
-            >
-              <Text style={styles.buttonText}>{processing ? 'Processando…' : m}</Text>
-            </TouchableOpacity>
-          ))}
-          {/* Cortesia (brinde) — pede a senha administrativa do evento. */}
-          <TouchableOpacity
-            style={[styles.courtesyButton, { opacity: processing ? 0.4 : 1 }]}
-            disabled={processing}
-            onPress={askCourtesyPassword}
-          >
-            <Text style={styles.courtesyText}>🎁 CORTESIA (brinde)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.secondaryButton, { marginTop: 10 }]}
-            onPress={() => setPaying(false)}
-          >
-            <Text style={styles.secondaryText}>Voltar</Text>
-          </TouchableOpacity>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {!splitMode ? (
+            <>
+              <Text style={styles.title}>Pagamento · R$ {total.toFixed(2)}</Text>
+              {METHODS.map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.button, { marginBottom: 10, opacity: processing ? 0.4 : 1 }]}
+                  disabled={processing}
+                  onPress={() => pay(m)}
+                >
+                  <Text style={styles.buttonText}>{processing ? 'Processando…' : m}</Text>
+                </TouchableOpacity>
+              ))}
+              {/* Pagamento dividido: parte numa forma, parte em outra. */}
+              <TouchableOpacity
+                style={[styles.secondaryButton, { marginBottom: 10, opacity: processing ? 0.4 : 1 }]}
+                disabled={processing}
+                onPress={openSplit}
+              >
+                <Text style={styles.secondaryText}>➗ Dividir pagamento</Text>
+              </TouchableOpacity>
+              {/* Cortesia (brinde) — pede a senha administrativa do evento. */}
+              <TouchableOpacity
+                style={[styles.courtesyButton, { opacity: processing ? 0.4 : 1 }]}
+                disabled={processing}
+                onPress={askCourtesyPassword}
+              >
+                <Text style={styles.courtesyText}>🎁 CORTESIA (brinde)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.secondaryButton, { marginTop: 10 }]}
+                onPress={() => setPaying(false)}
+              >
+                <Text style={styles.secondaryText}>Voltar</Text>
+              </TouchableOpacity>
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+            </>
+          ) : (
+            <>
+              <Text style={styles.title}>Dividir pagamento</Text>
+              <Text style={styles.subtitle}>
+                Total R$ {total.toFixed(2)} ·{' '}
+                {remainingCents > 0
+                  ? `falta R$ ${(remainingCents / 100).toFixed(2)}`
+                  : 'total coberto ✓'}
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={partValue}
+                onChangeText={setPartValue}
+                keyboardType="numeric"
+                placeholder="Valor desta parte"
+                placeholderTextColor="#6b7794"
+                editable={remainingCents > 0 && !processing}
+              />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {METHODS.map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[
+                      styles.button,
+                      {
+                        flexGrow: 1,
+                        flexBasis: '45%',
+                        marginBottom: 0,
+                        opacity: remainingCents <= 0 || processing ? 0.4 : 1,
+                      },
+                    ]}
+                    disabled={remainingCents <= 0 || processing}
+                    onPress={() => addPart(m)}
+                  >
+                    <Text style={styles.buttonText}>+ {m}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {parts.length > 0 ? (
+                <View style={[styles.card, { paddingVertical: 8, marginTop: 10 }]}>
+                  {parts.map((p, i) => (
+                    <View key={`${p.method}-${i}`} style={styles.cartRow}>
+                      <Text style={[styles.cartName, { flex: 1 }]}>{p.method}</Text>
+                      <Text style={[styles.cartSub, { marginRight: 8 }]}>
+                        R$ {Number(p.amount).toFixed(2)}
+                      </Text>
+                      <TouchableOpacity style={styles.removeBtn} onPress={() => removePart(i)}>
+                        <Text style={styles.removeText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { marginTop: 12, opacity: remainingCents === 0 && !processing ? 1 : 0.4 },
+                ]}
+                disabled={remainingCents !== 0 || processing}
+                onPress={finalizeSplit}
+              >
+                <Text style={styles.buttonText}>
+                  {processing ? 'Processando…' : 'Finalizar pagamento'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.secondaryButton, { marginTop: 10 }]}
+                disabled={processing}
+                onPress={closeSplit}
+              >
+                <Text style={styles.secondaryText}>Voltar</Text>
+              </TouchableOpacity>
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+            </>
+          )}
         </View>
       )}
 

@@ -196,6 +196,38 @@ describe('Núcleo operacional — ciclo de venda (e2e)', () => {
     expect(res.status).toBe(400);
   });
 
+  it('aceita pagamento DIVIDIDO em duas formas (crédito + pix fecham o total)', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId: randomUUID(),
+        items: [{ productId: AGUA, quantity: 1 }], // R$ 10,00
+        payments: [
+          { method: PaymentMethod.CREDITO, amount: '6.00' },
+          { method: PaymentMethod.PIX, amount: '4.00' },
+        ],
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.total).toBe('10');
+    expect(res.body.payments).toHaveLength(2);
+  });
+
+  it('pagamento dividido que NÃO fecha o total é recusado (400)', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId: randomUUID(),
+        items: [{ productId: AGUA, quantity: 1 }], // R$ 10,00
+        payments: [
+          { method: PaymentMethod.CREDITO, amount: '6.00' },
+          { method: PaymentMethod.PIX, amount: '3.00' }, // soma 9 ≠ 10
+        ],
+      });
+    expect(res.status).toBe(400);
+  });
+
   it('é idempotente por clientId (venda offline não duplica)', async () => {
     const clientId = randomUUID();
     const body = {
