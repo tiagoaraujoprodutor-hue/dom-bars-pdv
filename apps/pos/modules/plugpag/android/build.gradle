@@ -1,0 +1,24 @@
+// Módulo local do Expo — provedor de pagamento integrado PagBank (PlugPag).
+// ESTADO: esqueleto INERTE (o app usa o fluxo manual). Para ativar, veja o README.md.
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'com.dombars.plugpag'
+version = '0.1.0'
+
+expoModule {
+  // Módulo local do app — não é publicado como artefato Maven.
+  canBePublished = false
+}
+
+android {
+  namespace = "com.dombars.plugpag"
+}
+
+dependencies {
+  // TODO(PlugPag): habilitar quando o PagBank liberar a integração.
+  // O wrapper oficial do PlugPag é distribuído pelo repositório Maven do PagSeguro.
+  //  1) Adicione o repositório Maven do PagSeguro (em apps/pos/android/build.gradle
+  //     ou settings.gradle) — CONFIRME a URL/coordenadas atuais na doc do PagBank.
+  //  2) Descomente a dependência abaixo com a versão informada pelo PagBank:
+  //       implementation 'br.com.uol.pagseguro:plugpag-wrapper:<versao>'
+}
