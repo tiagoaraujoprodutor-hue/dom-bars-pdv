@@ -538,6 +538,70 @@ describe('Núcleo operacional — ciclo de venda (e2e)', () => {
     expect(errada.status).toBe(403);
   });
 
+  it('venda amarra um PIX online pré-aprovado (sem duplicar pagamento)', async () => {
+    // Simula uma cobrança PIX já confirmada pelo PagBank (Payment APROVADO, sem venda).
+    const pre = await prisma.payment.create({
+      data: {
+        method: PaymentMethod.PIX,
+        amount: '10.00',
+        status: 'APROVADO',
+        provider: 'pagbank',
+        providerRef: `ord-${randomUUID()}`,
+        eventId,
+      },
+    });
+
+    const clientId = randomUUID();
+    const res = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId,
+        items: [{ productId: AGUA, quantity: 1 }], // R$ 10,00
+        payments: [{ method: PaymentMethod.PIX, amount: '10.00', paymentId: pre.id }],
+      });
+    expect(res.status).toBe(201);
+
+    // O Payment pré-aprovado foi AMARRADO à venda (não criou um novo).
+    const linked = await prisma.payment.findUnique({ where: { id: pre.id } });
+    expect(linked?.saleId).toBe(res.body.id);
+    const count = await prisma.payment.count({ where: { saleId: res.body.id } });
+    expect(count).toBe(1); // só o PIX pré-aprovado, sem duplicata
+
+    // Reusar o mesmo PIX em OUTRA venda é recusado (409).
+    const reuse = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId: randomUUID(),
+        items: [{ productId: AGUA, quantity: 1 }],
+        payments: [{ method: PaymentMethod.PIX, amount: '10.00', paymentId: pre.id }],
+      });
+    expect(reuse.status).toBe(409);
+  });
+
+  it('recusa venda com PIX ainda não aprovado', async () => {
+    const pendente = await prisma.payment.create({
+      data: {
+        method: PaymentMethod.PIX,
+        amount: '10.00',
+        status: 'PENDENTE',
+        provider: 'pagbank',
+        providerRef: `ord-${randomUUID()}`,
+        eventId,
+      },
+    });
+    const res = await request(app.getHttpServer())
+      .post(`/events/${eventId}/sales`)
+      .set(auth(operToken))
+      .send({
+        clientId: randomUUID(),
+        items: [{ productId: AGUA, quantity: 1 }],
+        payments: [{ method: PaymentMethod.PIX, amount: '10.00', paymentId: pendente.id }],
+      });
+    expect(res.status).toBe(400);
+  });
+
   it('webhook do PagBank rejeita token forjado (403)', async () => {
     const res = await request(app.getHttpServer())
       .post('/payments/pagbank/webhook?t=forjado')

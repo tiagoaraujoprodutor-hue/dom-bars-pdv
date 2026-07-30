@@ -11,6 +11,8 @@ export type PaymentMethod = 'PIX' | 'CREDITO' | 'DEBITO' | 'DINHEIRO' | 'CORTESI
 export interface SalePaymentInput {
   method: PaymentMethod;
   amount: string;
+  /** Pagamento pré-aprovado (PIX online PagBank) a amarrar à venda. */
+  paymentId?: string;
 }
 
 export interface SalePayload {

@@ -25,6 +25,11 @@ export class PixChargeService {
     private readonly cfg: ConfigService,
   ) {}
 
+  /** Qual provedor de PIX o terminal deve usar: 'pagbank' (QR online) ou 'manual'. */
+  pixProvider(): 'pagbank' | 'manual' {
+    return this.cfg.get<boolean>('PAGBANK_ENABLED') ? 'pagbank' : 'manual';
+  }
+
   /** FASE 1 — cria a cobrança PIX e devolve o QR (texto copia-e-cola + imagem). */
   async createCharge(input: { eventId: string; amount: DecimalInput; clientId: string }) {
     const webhookToken = this.cfg.get<string>('PAGBANK_WEBHOOK_TOKEN');

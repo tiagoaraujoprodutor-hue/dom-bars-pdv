@@ -20,6 +20,12 @@ import { CreatePixDto, createPixSchema } from './pix.dto';
 export class PixController {
   constructor(private readonly pix: PixChargeService) {}
 
+  /** O terminal consulta como cobrar PIX: 'pagbank' (QR online) ou 'manual'. */
+  @Get('config')
+  config() {
+    return { pixProvider: this.pix.pixProvider() };
+  }
+
   /** Fase 1: cria a cobrança e devolve o QR para o terminal exibir. */
   @Post('pix')
   createPix(

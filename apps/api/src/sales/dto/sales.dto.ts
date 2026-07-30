@@ -10,6 +10,8 @@ export const saleItemSchema = z.object({
 export const paymentSchema = z.object({
   method: z.nativeEnum(PaymentMethod),
   amount: money,
+  /** Pagamento pré-aprovado (PIX online PagBank): amarra o Payment existente à venda. */
+  paymentId: z.string().optional(),
 });
 
 export const createSaleSchema = z.object({

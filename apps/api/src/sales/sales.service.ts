@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PaymentMethod, Prisma } from '@prisma/client';
 import { AdminPasswordService } from '../auth/admin-password.service';
 import { AuditService } from '../audit/audit.service';
@@ -27,7 +28,7 @@ export interface FinalizeSaleInput {
   machineId?: string;
   tabId?: string;
   lines: SaleLine[];
-  payments: { method: PaymentMethod; amount: DecimalInput }[];
+  payments: { method: PaymentMethod; amount: DecimalInput; paymentId?: string }[];
   applyServiceFee: boolean;
   adminPassword?: string;
 }
@@ -47,6 +48,7 @@ export class SalesService {
     private readonly audit: AuditService,
     private readonly adminPassword: AdminPasswordService,
     private readonly realtime: RealtimeService,
+    private readonly cfg: ConfigService,
   ) {}
 
   /**
@@ -128,8 +130,30 @@ export class SalesService {
       });
     }
 
-    // Processa pagamentos pela camada de abstração (Strategy).
+    // Pagamentos: os pré-aprovados (PIX online) são VALIDADOS e amarrados depois
+    // (não reprocessa); os demais passam pela camada de abstração (Strategy).
     for (const payment of input.payments) {
+      if (payment.paymentId) {
+        const pre = await this.prisma.payment.findUnique({ where: { id: payment.paymentId } });
+        if (!pre || pre.eventId !== input.eventId || pre.provider !== 'pagbank') {
+          throw new BadRequestException('Pagamento PIX inválido para este evento');
+        }
+        if (pre.status !== 'APROVADO') {
+          throw new BadRequestException('Pagamento PIX ainda não foi aprovado');
+        }
+        if (pre.saleId) {
+          throw new ConflictException('Pagamento PIX já vinculado a outra venda');
+        }
+        if (pre.method !== payment.method || !dec(pre.amount).equals(dec(payment.amount))) {
+          throw new BadRequestException('Pagamento PIX diverge da forma/valor informado');
+        }
+        continue; // não reprocessa — já foi pago no PagBank
+      }
+      // Com o PagBank ligado, PIX SÓ entra pré-aprovado (via QR). Sem paymentId, o
+      // provider manual aprovaria sem cobrança real (buraco contábil) — barra aqui.
+      if (payment.method === PaymentMethod.PIX && this.cfg.get<boolean>('PAGBANK_ENABLED')) {
+        throw new BadRequestException('PIX deve ser cobrado pelo PagBank (QR) e estar aprovado.');
+      }
       const result = await this.payments.process({
         eventId: input.eventId,
         method: payment.method,
@@ -160,11 +184,27 @@ export class SalesService {
             total,
             items: { create: itemsData },
             payments: {
-              create: input.payments.map((p) => ({ method: p.method, amount: dec(p.amount) })),
+              // Só cria os pagamentos "novos"; os pré-aprovados (PIX) são amarrados abaixo.
+              create: input.payments
+                .filter((p) => !p.paymentId)
+                .map((p) => ({ method: p.method, amount: dec(p.amount) })),
             },
           },
           include: saleInclude,
         });
+
+        // Amarra os pagamentos PIX pré-aprovados à venda (condicional: só se ainda
+        // não vinculados e APROVADO) — preserva o NSU/providerRef p/ conciliação.
+        const preApproved = input.payments.filter((p) => p.paymentId);
+        for (const p of preApproved) {
+          const res = await tx.payment.updateMany({
+            where: { id: p.paymentId, saleId: null, status: 'APROVADO', eventId: input.eventId },
+            data: { saleId: created.id },
+          });
+          if (res.count === 0) {
+            throw new ConflictException('Pagamento PIX já vinculado ou indisponível');
+          }
+        }
 
         if (input.tabId) {
           // Fecha a comanda de forma ATÔMICA e CONDICIONAL (só se ainda ABERTA).
@@ -185,6 +225,10 @@ export class SalesService {
         // estoque, lança e desfaz a venda inteira (atômico).
         await this.inventory.applyConsumption(tx, input.lines);
 
+        // Se amarrou PIX pré-aprovado, re-lê para o retorno incluir esse pagamento.
+        if (preApproved.length > 0) {
+          return tx.sale.findUniqueOrThrow({ where: { id: created.id }, include: saleInclude });
+        }
         return created;
       })
       .catch((error: unknown) => {

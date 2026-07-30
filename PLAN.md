@@ -348,9 +348,18 @@ então NÃO cabe no `finalize()` síncrono de hoje — exige fluxo de duas fases
   **Decisão:** PIX é ONLINE — exige internet; offline o terminal não oferece PIX
   (mesmo padrão da cortesia). NÃO registramos um provider PIX no Strategy (evita
   quebrar o `finalize()` atual): o PIX online é um fluxo explícito à parte.
-- **Pendente (PR4 + UI):** ajustar o `finalize()` para amarrar um `Payment` PIX
-  já APROVADO (validar status, pular `payments.process()` p/ esse item); e a tela
-  (POS/Web) exibir o QR, copiar código, fazer poll do status e então fechar a venda.
+- **PR4 (feito):** `finalize()` aceita `payments[].paymentId` — valida o `Payment`
+  PIX APROVADO (evento/valor/forma, não vinculado), pula o `payments.process()` e
+  amarra `saleId` na transação (condicional, 409 se já vinculado). Guard: com
+  `PAGBANK_ENABLED=true`, PIX SEM paymentId é recusado (evita o provider manual
+  aprovar PIX sem cobrança real).
+- **UI PIX-QR (feito, inerte):** `GET .../payments/config` diz ao terminal se o PIX
+  é 'pagbank' ou 'manual' (default manual → produção intacta até ligar). No POS, com
+  'pagbank' + online, tocar PIX abre o QR (imagem + copia-e-cola), faz poll do status
+  e, ao APROVAR, fecha a venda amarrando o paymentId. Sem rede → PIX indisponível.
+- **Pendente:** PIX no pagamento DIVIDIDO via QR (hoje o dividido esconde PIX quando
+  PagBank ligado); validação ponta-a-ponta em SANDBOX (token + URL pública/ngrok) —
+  etapa do dev com a conta PagBank.
 
 ### Endurecimento ainda pendente (roadmap antifraude)
 - **Sequência monotônica por terminal + conciliação server-side** para detectar

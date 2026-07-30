@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Image,
   Modal,
   ScrollView,
   Text,
@@ -81,6 +82,14 @@ export function SaleScreen({
   const [splitMode, setSplitMode] = useState(false);
   const [parts, setParts] = useState<SalePaymentInput[]>([]);
   const [partValue, setPartValue] = useState('');
+  // PIX online (PagBank): 'manual' = confirmação do operador (hoje); 'pagbank' = QR.
+  const [pixProvider, setPixProvider] = useState<'manual' | 'pagbank'>('manual');
+  const [pixCharge, setPixCharge] = useState<{
+    paymentId: string;
+    qrText: string;
+    qrImageUrl?: string | null;
+  } | null>(null);
+  const pixPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Carrega o catálogo do evento e o guarda localmente. Se estiver SEM rede no
   // cold-start, usa o catálogo salvo (o operador continua vendendo offline).
@@ -107,6 +116,17 @@ export function SaleScreen({
       active = false;
     };
   }, [eventId]);
+
+  // Descobre como cobrar PIX (QR do PagBank ou manual). Falha → mantém 'manual'
+  // (comportamento de hoje), então nada muda enquanto o PagBank não estiver ligado.
+  useEffect(() => {
+    api<{ pixProvider: 'manual' | 'pagbank' }>(`/events/${eventId}/payments/config`)
+      .then((r) => setPixProvider(r.pixProvider))
+      .catch(() => setPixProvider('manual'));
+  }, [eventId]);
+
+  // Para o polling do PIX ao desmontar.
+  useEffect(() => () => stopPixPolling(), []);
 
   const total = useMemo(
     () => Object.values(cart).reduce((acc, l) => acc + Number(l.product.price) * l.qty, 0),
@@ -207,6 +227,77 @@ export function SaleScreen({
   /** Pagamento em forma única (fluxo rápido de sempre) — total inteiro numa forma. */
   function pay(method: PaymentMethod, adminPassword?: string): Promise<void> {
     return submit([{ method, amount: total.toFixed(2) }], adminPassword);
+  }
+
+  // ── PIX online (PagBank) ──
+  // Toque numa forma: PIX com PagBank ligado abre o QR; o resto segue normal.
+  function onPickMethod(method: PaymentMethod): void {
+    if (method === 'PIX' && pixProvider === 'pagbank') {
+      if (!online) {
+        setError('PIX precisa de internet (cobrança pelo PagBank).');
+        return;
+      }
+      void startPixQr();
+      return;
+    }
+    void pay(method);
+  }
+
+  async function startPixQr(): Promise<void> {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    setProcessing(true);
+    setError('');
+    try {
+      const charge = await api<{ paymentId: string; qrText: string; qrImageUrl?: string | null }>(
+        `/events/${eventId}/payments/pix`,
+        { method: 'POST', body: { amount: total.toFixed(2), clientId: clientIdRef.current } },
+      );
+      setPixCharge(charge);
+      startPixPolling(charge.paymentId);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      processingRef.current = false;
+      setProcessing(false);
+    }
+  }
+
+  function startPixPolling(paymentId: string): void {
+    stopPixPolling();
+    pixPollRef.current = setInterval(() => {
+      api<{ status: string }>(`/events/${eventId}/payments/${paymentId}/status`)
+        .then((r) => {
+          if (r.status === 'APROVADO') {
+            stopPixPolling();
+            void finishPix(paymentId);
+          } else if (r.status === 'RECUSADO' || r.status === 'CANCELADO') {
+            stopPixPolling();
+            setPixCharge(null);
+            setError('PIX não aprovado. Tente novamente.');
+          }
+        })
+        .catch(() => undefined);
+    }, 3000);
+  }
+
+  function stopPixPolling(): void {
+    if (pixPollRef.current) {
+      clearInterval(pixPollRef.current);
+      pixPollRef.current = null;
+    }
+  }
+
+  // PIX aprovado → fecha a venda amarrando o pagamento pré-aprovado (paymentId).
+  async function finishPix(paymentId: string): Promise<void> {
+    setPixCharge(null);
+    await submit([{ method: 'PIX', amount: total.toFixed(2), paymentId }]);
+  }
+
+  function cancelPix(): void {
+    stopPixPolling();
+    setPixCharge(null);
+    // A cobrança fica pendente no PagBank e expira sozinha; a venda não é fechada.
   }
 
   // ── Pagamento dividido ──
@@ -379,9 +470,11 @@ export function SaleScreen({
                   key={m}
                   style={[styles.button, { marginBottom: 10, opacity: processing ? 0.4 : 1 }]}
                   disabled={processing}
-                  onPress={() => pay(m)}
+                  onPress={() => onPickMethod(m)}
                 >
-                  <Text style={styles.buttonText}>{processing ? 'Processando…' : m}</Text>
+                  <Text style={styles.buttonText}>
+                    {processing ? 'Processando…' : m === 'PIX' && pixProvider === 'pagbank' ? 'PIX (QR)' : m}
+                  </Text>
                 </TouchableOpacity>
               ))}
               {/* Pagamento dividido: parte numa forma, parte em outra. */}
@@ -427,7 +520,9 @@ export function SaleScreen({
                 editable={remainingCents > 0 && !processing}
               />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {METHODS.map((m) => (
+                {/* Com PagBank ligado, PIX no dividido sai da lista (PIX vai pelo QR
+                    inteiro; dividir com PIX-QR fica p/ uma etapa futura). */}
+                {METHODS.filter((m) => !(m === 'PIX' && pixProvider === 'pagbank')).map((m) => (
                   <TouchableOpacity
                     key={m}
                     style={[
@@ -517,6 +612,41 @@ export function SaleScreen({
                 <Text style={styles.buttonText}>Aplicar</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* PIX (PagBank): mostra o QR para o cliente escanear e aguarda a confirmação. */}
+      <Modal transparent visible={pixCharge != null} animationType="fade" onRequestClose={cancelPix}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.title}>PIX · R$ {total.toFixed(2)}</Text>
+            <Text style={styles.subtitle}>O cliente escaneia o QR abaixo para pagar.</Text>
+            {pixCharge?.qrImageUrl ? (
+              <Image
+                source={{ uri: pixCharge.qrImageUrl }}
+                style={{
+                  width: 220,
+                  height: 220,
+                  alignSelf: 'center',
+                  backgroundColor: '#fff',
+                  borderRadius: 8,
+                }}
+              />
+            ) : null}
+            <Text
+              selectable
+              numberOfLines={2}
+              style={{ color: colors.muted, fontSize: 11, marginTop: 8 }}
+            >
+              {pixCharge?.qrText}
+            </Text>
+            <Text style={{ color: colors.accent, textAlign: 'center', marginTop: 10, fontWeight: '700' }}>
+              Aguardando pagamento…
+            </Text>
+            <TouchableOpacity style={[styles.secondaryButton, { marginTop: 12 }]} onPress={cancelPix}>
+              <Text style={styles.secondaryText}>Cancelar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
