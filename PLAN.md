@@ -339,14 +339,18 @@ então NÃO cabe no `finalize()` síncrono de hoje — exige fluxo de duas fases
   opcional (a cobrança PIX nasce antes da venda). Migração segura em produção
   (todas as colunas NOT NULL têm default). Env `PAGBANK_*` com guardrail no boot
   (ligar exige token+URL+webhookToken). Tudo INERTE com `PAGBANK_ENABLED=false`.
-- **Pendente (PR2+):** `PagBankClient` (idempotency-key ESTÁVEL por venda, não
-  aleatória), `PixChargeService` (2 fases), webhook (valida `?t=` + re-busca o
-  pedido), endpoints de cobrança/status **com JWT + EventScopeGuard**, ajuste do
-  `finalize()` para amarrar um `Payment` PIX pré-aprovado.
-- **Decisão de produto pendente:** comportamento do PIX **offline** (o app é
-  offline-first). Sem internet não há QR/webhook — decidir se cai no PIX manual
-  de hoje ou fica indisponível. NÃO registrar o `PagBankPixProvider` para PIX no
-  Strategy sem o ajuste do `finalize()` junto (senão quebra a venda PIX atual).
+- **PR2/PR3 (feito):** `PagBankClient` (idempotency-key ESTÁVEL = clientId da venda,
+  timeout de 15s), `PixChargeService` (2 fases: `createCharge`→QR; `confirmFromOrder`
+  re-busca o pedido; `status` faz poll de fallback), webhook PÚBLICO valida `?t=` +
+  re-busca (não confia no corpo), e `PixController` escopado
+  (`POST /events/:eventId/payments/pix`, `GET .../:paymentId/status`) com JWT +
+  EventScopeGuard. Tudo INERTE (503/limpo quando `PAGBANK_ENABLED=false`/sem token).
+  **Decisão:** PIX é ONLINE — exige internet; offline o terminal não oferece PIX
+  (mesmo padrão da cortesia). NÃO registramos um provider PIX no Strategy (evita
+  quebrar o `finalize()` atual): o PIX online é um fluxo explícito à parte.
+- **Pendente (PR4 + UI):** ajustar o `finalize()` para amarrar um `Payment` PIX
+  já APROVADO (validar status, pular `payments.process()` p/ esse item); e a tela
+  (POS/Web) exibir o QR, copiar código, fazer poll do status e então fechar a venda.
 
 ### Endurecimento ainda pendente (roadmap antifraude)
 - **Sequência monotônica por terminal + conciliação server-side** para detectar

@@ -538,6 +538,28 @@ describe('Núcleo operacional — ciclo de venda (e2e)', () => {
     expect(errada.status).toBe(403);
   });
 
+  it('webhook do PagBank rejeita token forjado (403)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/payments/pagbank/webhook?t=forjado')
+      .send({ id: 'ord_qualquer' });
+    expect(res.status).toBe(403);
+  });
+
+  it('cobrança PIX é escopada por evento e falha limpa sem PagBank configurado', async () => {
+    // Sem autenticação/membro → barrado (não vaza o endpoint).
+    const semAuth = await request(app.getHttpServer())
+      .post(`/events/${eventId}/payments/pix`)
+      .send({ amount: '10.00', clientId: randomUUID() });
+    expect([401, 403]).toContain(semAuth.status);
+
+    // Com operador (membro), mas PagBank desligado no ambiente → 503 (não 500).
+    const comAuth = await request(app.getHttpServer())
+      .post(`/events/${eventId}/payments/pix`)
+      .set(auth(operToken))
+      .send({ amount: '10.00', clientId: randomUUID() });
+    expect(comAuth.status).toBe(503);
+  });
+
   // DEVE SER O ÚLTIMO teste: dispara o bloqueio da senha admin do evento.
   it('senha admin: bloqueia após tentativas repetidas (antifraude força-bruta)', async () => {
     let bloqueou = false;
