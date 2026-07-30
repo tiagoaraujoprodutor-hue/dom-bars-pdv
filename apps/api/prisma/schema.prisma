@@ -306,15 +306,33 @@ enum PaymentMethod {
   CORTESIA
 }
 
+enum PaymentStatus {
+  PENDENTE // PIX aguardando o cliente pagar (fluxo assíncrono do PagBank)
+  APROVADO
+  RECUSADO
+  CANCELADO
+  ESTORNADO
+}
+
 model Payment {
-  id        String        @id @default(uuid())
-  saleId    String
-  sale      Sale          @relation(fields: [saleId], references: [id])
-  method    PaymentMethod
-  amount    Decimal       @db.Decimal(10, 2)
-  createdAt DateTime      @default(now())
+  id          String        @id @default(uuid())
+  // OPCIONAL: no PIX online a cobrança nasce ANTES da venda existir (amarra depois).
+  saleId      String?
+  sale        Sale?         @relation(fields: [saleId], references: [id])
+  method      PaymentMethod
+  amount      Decimal       @db.Decimal(10, 2)
+  // Manual/cartão nascem APROVADO; PIX online nasce PENDENTE e vira APROVADO no webhook.
+  status      PaymentStatus @default(APROVADO)
+  provider    String        @default("manual") // "manual" | "pagbank"
+  providerRef String? // order_id / charge_id / NSU — conciliação com o PagBank
+  qrText      String? // copia-e-cola EMV do PIX
+  qrImageUrl  String? // link do PNG do QR
+  eventId     String? // correlaciona o webhook antes de existir saleId
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @default(now()) @updatedAt
 
   @@index([saleId])
+  @@index([providerRef])
 }
 
 model Courtesy {

@@ -328,6 +328,26 @@ auditoria append-only; ações críticas com senha admin + trilha). Correções 
   do evento (LGPD).
 - **Cancelamento concorrente virava 500** → cancelamento condicional + P2002 → 409.
 
+## 12. Integração PagBank — PIX online (Orders API)
+
+Trilha ONLINE (PIX por QR + cartão digitado), distinta do PlugPag presencial
+(maquininha). PIX online é ASSÍNCRONO (cobra → cliente paga o QR → webhook confirma),
+então NÃO cabe no `finalize()` síncrono de hoje — exige fluxo de duas fases.
+
+- **PR1 (feito):** `Payment` ganhou `status` (enum `PaymentStatus`), `provider`,
+  `providerRef`, `qrText`, `qrImageUrl`, `eventId`, `updatedAt`; `saleId` virou
+  opcional (a cobrança PIX nasce antes da venda). Migração segura em produção
+  (todas as colunas NOT NULL têm default). Env `PAGBANK_*` com guardrail no boot
+  (ligar exige token+URL+webhookToken). Tudo INERTE com `PAGBANK_ENABLED=false`.
+- **Pendente (PR2+):** `PagBankClient` (idempotency-key ESTÁVEL por venda, não
+  aleatória), `PixChargeService` (2 fases), webhook (valida `?t=` + re-busca o
+  pedido), endpoints de cobrança/status **com JWT + EventScopeGuard**, ajuste do
+  `finalize()` para amarrar um `Payment` PIX pré-aprovado.
+- **Decisão de produto pendente:** comportamento do PIX **offline** (o app é
+  offline-first). Sem internet não há QR/webhook — decidir se cai no PIX manual
+  de hoje ou fica indisponível. NÃO registrar o `PagBankPixProvider` para PIX no
+  Strategy sem o ajuste do `finalize()` junto (senão quebra a venda PIX atual).
+
 ### Endurecimento ainda pendente (roadmap antifraude)
 - **Sequência monotônica por terminal + conciliação server-side** para detectar
   vendas offline nunca sincronizadas (hoje a detecção depende de contagem física de
