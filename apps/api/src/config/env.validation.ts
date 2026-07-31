@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+// Docker/compose costuma passar variáveis vazias ("") quando não preenchidas.
+// Para campos OPCIONAIS, tratamos "" como ausente — senão um "" quebraria .url()
+// e o boot falharia à toa.
+const emptyToUndef = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((v) => (v === '' ? undefined : v), schema);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -21,11 +27,11 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
   PAGBANK_BASE_URL: z.string().url().default('https://sandbox.api.pagseguro.com'),
-  PAGBANK_TOKEN: z.string().optional(),
+  PAGBANK_TOKEN: emptyToUndef(z.string().optional()),
   // Segredo NOSSO: entra na querystring do webhook (?t=...) p/ barrar POST forjado.
-  PAGBANK_WEBHOOK_TOKEN: z.string().optional(),
+  PAGBANK_WEBHOOK_TOKEN: emptyToUndef(z.string().optional()),
   // URL pública deste backend, usada p/ montar notification_urls do PagBank.
-  PAGBANK_NOTIFICATION_URL: z.string().url().optional(),
+  PAGBANK_NOTIFICATION_URL: emptyToUndef(z.string().url().optional()),
   // Validade do QR PIX em segundos (30 min por padrão).
   PAGBANK_PIX_EXPIRATION_SECONDS: z.coerce.number().int().positive().default(1800),
 });

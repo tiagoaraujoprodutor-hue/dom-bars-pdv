@@ -40,7 +40,14 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-12h}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-2000}
+      # PagBank PIX online (opcional — deixe desligado até homologar).
+      PAGBANK_ENABLED: ${PAGBANK_ENABLED:-false}
+      PAGBANK_BASE_URL: ${PAGBANK_BASE_URL:-https://api.pagseguro.com}
+      PAGBANK_TOKEN: ${PAGBANK_TOKEN:-}
+      PAGBANK_WEBHOOK_TOKEN: ${PAGBANK_WEBHOOK_TOKEN:-}
+      PAGBANK_NOTIFICATION_URL: ${PAGBANK_NOTIFICATION_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,6 +65,9 @@ services:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
+      # NEXT_PUBLIC_* é embutido no BUILD do Next — precisa vir como build arg.
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     environment:
       NODE_ENV: production
